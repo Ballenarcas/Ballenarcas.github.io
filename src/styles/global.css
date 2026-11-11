@@ -294,6 +294,67 @@ a { color: inherit; text-decoration: none; }
 .exp-row p { grid-column: 2; max-width: 70ch; }
 .exp-row .exp-links { grid-column: 2; margin-top: 0; }
 
+/* 04 with the 3D scene: the orbit. The section is a pinned stage the scroll travels through.
+   Without the orbit (no WebGL, reduced motion, no script) the stage is plain flow and the list shows. */
+.orbit-sky, .orbit-panel { display: none; }
+.orbit-on .expeditions { padding: 0; }
+.orbit-on .exp-list { display: none; }
+.orbit-on .orbit-track { height: calc(var(--screens) * 100vh); }
+.orbit-on .orbit-stage { position: sticky; top: 0; height: 100svh; overflow: clip; }
+.orbit-on .orbit-head { position: relative; z-index: 3; padding: clamp(88px, 13svh, 128px) var(--m) 0; max-width: 760px; pointer-events: none; transition: opacity 0.6s var(--ease); }
+.orbit-on .orbit-head .filter { pointer-events: auto; margin-top: clamp(14px, 2.4svh, 28px); }
+.orbit-on .orbit-head .display { font-size: clamp(32px, 4.4vw, 68px); }
+.orbit-on .orbit-head .lead { font-size: clamp(16px, 1.25vw, 19px); }
+.orbit-on .filter-count { margin-left: 0; }
+.orbit-on .orbit-sky { display: block; position: absolute; inset: 0; z-index: 2; }
+.orbit-labels { position: absolute; inset: 0; pointer-events: none; }
+.orbit-label { all: unset; position: absolute; left: 0; top: 0; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; pointer-events: auto; will-change: transform; transition: opacity 0.4s; }
+.orbit-label > span { position: absolute; left: 50%; top: calc(100% + 8px); translate: -50% 0; white-space: nowrap; padding: 4px 9px; border-radius: 999px;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--silver);
+  background: rgba(8, 7, 17, 0.5); border: 1px solid transparent; text-shadow: 0 0 10px var(--bg); transition: color 0.3s, border-color 0.3s, background-color 0.3s; }
+.orbit-label::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 1px solid var(--accent); opacity: 0; scale: 0.92; transition: opacity 0.35s, scale 0.5s var(--ease); }
+.orbit-label:hover > span, .orbit-label:focus-visible > span, .orbit-label[aria-expanded='true'] > span { color: var(--ink); border-color: var(--line-strong); background: rgba(17, 16, 32, 0.8); }
+.orbit-label:hover::before, .orbit-label:focus-visible::before { opacity: 0.55; scale: 1; }
+.orbit-label:focus-visible { outline: none; }
+.orbit-label:focus-visible > span { outline: 2px solid var(--soft); outline-offset: 3px; }
+.orbit-label.is-off { pointer-events: none; }
+.orbit-stage:not(.is-live) .orbit-label { pointer-events: none; }
+.orbit-hint { position: absolute; left: 50%; bottom: clamp(20px, 5svh, 44px); translate: -50% 0; color: var(--dim); opacity: calc(var(--orbit, 0) * 0.9); transition: opacity 0.5s; pointer-events: none; }
+.orbit-stage.is-focus .orbit-hint { opacity: 0; }
+.orbit-stage.is-focus .orbit-head .scene-head { opacity: 0; }
+.orbit-stage.is-focus .orbit-label[aria-expanded='false'] > span { opacity: 0.5; }
+
+.orbit-on .orbit-panel:not([hidden]) { display: block; }
+.orbit-panel { position: absolute; z-index: 4; right: var(--m); top: 50%; width: min(400px, 36vw); max-height: calc(100svh - 150px); overflow: auto; overscroll-behavior: contain;
+  padding: 22px 24px 18px; border: 1px solid var(--line); border-radius: 20px; background: rgba(17, 16, 32, 0.84);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.9);
+  opacity: 0; transform: translate(24px, calc(-50% + 8px)); transition: opacity 0.6s var(--ease), transform 0.8s var(--ease); scrollbar-width: thin; }
+.orbit-panel.open { opacity: 1; transform: translate(0, -50%); }
+.orbit-close { all: unset; position: absolute; right: 12px; top: 12px; z-index: 1; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; cursor: pointer;
+  color: var(--ink); font-size: 22px; line-height: 1; border: 1px solid var(--line); background: rgba(8, 7, 17, 0.5); transition: background-color 0.3s, border-color 0.3s; }
+.orbit-close:hover { background: var(--deep); border-color: var(--line-strong); }
+.orbit-close:focus-visible { outline: 2px solid var(--soft); outline-offset: 3px; }
+.orbit-card { display: grid; gap: 12px; }
+.orbit-cover { display: block; margin: -4px 44px 6px 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--line); aspect-ratio: 16 / 10; background: var(--bg); }
+.orbit-cover img { width: 100%; height: 100%; object-fit: cover; object-position: top; transition: transform 0.9s var(--ease); }
+.orbit-cover:hover img { transform: scale(1.03); }
+.orbit-title { display: flex; align-items: center; gap: 14px; }
+.orbit-title .planet { --s: 30px; }
+.orbit-title h3 { margin: 0; font-family: var(--display); font-weight: 300; font-size: clamp(30px, 2.6vw, 40px); letter-spacing: -0.03em; line-height: 1; color: var(--ink); }
+.orbit-tagline { color: var(--ink); font-size: 16.5px; line-height: 1.45; }
+.orbit-summary { font-size: 15px; line-height: 1.55; }
+.orbit-stack { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 2px 0 0; list-style: none; }
+.orbit-stack li { padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px; font-size: 10.5px; color: var(--silver); }
+.orbit-card .exp-links { margin-top: 4px; gap: 4px 22px; }
+@media (max-width: 760px), (max-aspect-ratio: 17/20) {
+  .orbit-panel { left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; max-height: 54svh; padding: 18px 18px 12px; transform: translateY(24px); }
+  .orbit-panel.open { transform: none; }
+  .orbit-cover { display: none; }
+  .orbit-stage.is-focus .orbit-head { opacity: 0; pointer-events: none; }
+  .orbit-stage.is-focus .orbit-head .filter { pointer-events: none; }
+  .orbit-on .orbit-head .lead { display: none; }
+}
+
 /* 05 Contact: the horizon */
 .contact { position: relative; min-height: 100svh; display: grid; grid-template-rows: 1fr auto; padding: clamp(110px, 16svh, 170px) var(--m) 22px; text-align: center; }
 .contact-main { display: grid; gap: 22px; justify-items: center; align-content: start; }

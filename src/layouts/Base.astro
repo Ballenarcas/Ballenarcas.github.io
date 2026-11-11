@@ -45,7 +45,23 @@ const en = lang === 'en' ? canonical : alt;
     <meta property="og:locale:alternate" content={other === 'es' ? 'es_ES' : 'en_US'} />
     <meta name="twitter:card" content="summary_large_image" />
     {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
-    <script is:inline>document.documentElement.classList.add('js');</script>
+    <script is:inline>
+      // Before the first paint: scripts run, and whether the projects can be a 3D orbit (WebGL 2, motion
+      // allowed, not a data-saving or very small device). Deciding it now keeps the layout from jumping.
+      (function () {
+        var d = document.documentElement, n = navigator;
+        d.classList.add('js');
+        try {
+          if (new URLSearchParams(location.search).has('flat') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+          if ((n.connection && n.connection.saveData) || (n.deviceMemory || 8) <= 2) return;
+          var gl = document.createElement('canvas').getContext('webgl2');
+          if (!gl) return;
+          d.classList.add('orbit-on');
+          var lose = gl.getExtension('WEBGL_lose_context');
+          if (lose) lose.loseContext();
+        } catch (e) {}
+      })();
+    </script>
     <ClientRouter />
   </head>
   <body>

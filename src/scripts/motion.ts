@@ -5,22 +5,25 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { SpaceController } from './space/controller';
 import { FlatRenderer } from './space/flat';
+import type { MoonScene } from './space/scene';
+import { orbitUi } from './orbit-ui';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 let cleanups: Array<() => void> = [];
 let controller: SpaceController | null = null;
+/** The 3D scene, once it is running. */
+let scene: Promise<MoonScene | null> = Promise.resolve(null);
+/** The projects are an orbit (3D) on this device. Decided before the first paint, in the page head. */
+let orbit = false;
 
-/** Which version of the scene this device gets. `?flat`, `?low` and `?high` force one, for testing. */
+/** Which version of the scene this device gets. `?flat`, `?low` and `?high` force one, for testing.
+ *  The head script has already checked WebGL 2, data saving and memory: `orbit-on` means 3D is possible. */
 function tier(): 'high' | 'low' | 'flat' {
   const query = new URLSearchParams(location.search);
-  if (query.has('flat')) return 'flat';
-  const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
-  if (nav.connection?.saveData || (nav.deviceMemory ?? 8) <= 2) return 'flat';
-  const probe = document.createElement('canvas').getContext('webgl2');
-  if (!probe) return 'flat';
-  probe.getExtension('WEBGL_lose_context')?.loseContext();
+  if (!document.documentElement.classList.contains('orbit-on')) return 'flat';
+  const nav = navigator as Navigator & { deviceMemory?: number };
   const modest = matchMedia('(max-width: 820px)').matches || (nav.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4;
   if (query.has('high')) return 'high';
   return query.has('low') || modest ? 'low' : 'high';
@@ -32,21 +35,32 @@ function space() {
   if (!root) return;
   if (controller) { controller.bind(); return; }
   // Reduced motion: a still Moon placed by CSS, nothing follows the scroll.
-  if (reduced()) { root.classList.add('is-static'); return; }
+  if (reduced()) { root.classList.add('is-static'); document.documentElement.classList.remove('orbit-on'); return; }
 
   const canvas = root.querySelector('canvas')!;
   const picture = root.querySelector<HTMLElement>('.moon2d')!;
   controller = new SpaceController({ animate: true });
-  const flat = () => { root.classList.add('is-flat'); controller!.attach(new FlatRenderer(picture)); };
+  const flat = () => {
+    // No 3D: the projects fall back to the list, and the page is measured again.
+    orbit = false;
+    document.documentElement.classList.remove('orbit-on');
+    root.classList.add('is-flat');
+    controller!.attach(new FlatRenderer(picture));
+    controller!.bind();
+    ScrollTrigger.refresh();
+    return null;
+  };
   const level = tier();
+  orbit = level !== 'flat';
   if (level === 'flat') flat();
   else {
-    import('./space/scene')
+    scene = import('./space/scene')
       .then(async ({ MoonScene }) => {
-        const scene = new MoonScene(canvas, level);
-        await scene.ready;
-        controller!.attach(scene);
+        const s = new MoonScene(canvas, level);
+        await s.ready;
+        controller!.attach(s);
         root.classList.add('is-live');
+        return s;
       })
       .catch(flat);
   }
@@ -164,8 +178,11 @@ function filters() {
     });
     buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === cat)));
     if (count) count.textContent = String(shown);
-    controller?.bind();
-    ScrollTrigger.refresh();
+    // With the orbit on, the list is not shown and the page keeps its length.
+    if (!orbit) {
+      controller?.bind();
+      ScrollTrigger.refresh();
+    }
   };
   buttons.forEach((b) => b.addEventListener('click', () => apply(b.dataset.cat!)));
 }
@@ -184,6 +201,18 @@ function clips() {
   }, { threshold: 0.35 });
   vids.forEach((v) => io.observe(v));
   cleanups.push(() => io.disconnect());
+}
+
+/** The orbit of the projects: labels, selection and panel, once the 3D scene is running. */
+function orbitPage() {
+  if (!orbit || !document.querySelector('[data-orbit-stage]')) {
+    void scene.then((s) => s?.focus(null));
+    return;
+  }
+  let stop: (() => void) | null = null;
+  let gone = false;
+  void scene.then((s) => { if (s && !gone && orbit) stop = orbitUi(s); });
+  cleanups.push(() => { gone = true; stop?.(); });
 }
 
 function menu() {
@@ -213,6 +242,7 @@ function init() {
   filters();
   constellations();
   clips();
+  orbitPage();
   menu();
   ScrollTrigger.refresh();
 }
@@ -222,5 +252,7 @@ document.addEventListener('astro:before-swap', (event) => {
   cleanups.forEach((fn) => fn());
   cleanups = [];
   // The incoming page must know that scripts are running, or it shows its no-script fallbacks.
-  (event as Event & { newDocument: Document }).newDocument.documentElement.classList.add('js', 'ready');
+  const next = (event as Event & { newDocument: Document }).newDocument.documentElement;
+  next.classList.add('js', 'ready');
+  next.classList.toggle('orbit-on', orbit);
 });

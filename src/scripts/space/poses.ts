@@ -11,7 +11,7 @@ export interface Pose {
   spin: number;
 }
 
-export type PoseKey = 'hero' | 'about' | 'skills' | 'projects' | 'contact' | 'detail' | 'detail-end' | 'page';
+export type PoseKey = 'hero' | 'about' | 'skills' | 'projects' | 'orbit' | 'contact' | 'detail' | 'detail-end' | 'page';
 
 const wide: Record<PoseKey, Pose> = {
   // 01 A small full violet Moon hanging in space.
@@ -22,6 +22,8 @@ const wide: Record<PoseKey, Pose> = {
   skills: { x: 1.06, y: -1.4, r: 0.32, tilt: 0.34, spin: 0.85 },
   // 04 Low orbit: a large Moon below the expeditions, only its edge still lit.
   projects: { x: -0.85, y: -1.2, r: 1.15, tilt: 0.62, spin: 1.35 },
+  // 04 with the 3D orbit: the Moon in the middle, the hub the project planets turn around.
+  orbit: { x: 0, y: 0, r: 0.15, tilt: 0.3, spin: 1.35 },
   // 05 Total eclipse, centred behind the last words, with its violet corona.
   contact: { x: 0, y: -0.06, r: 0.3, tilt: 0.3, spin: 1.6 },
   // Inner pages: small and high in the corner, away from the reading column.
@@ -36,6 +38,7 @@ const tall: Record<PoseKey, Pose> = {
   about: { ...wide.about, x: 1.0, y: 0.9, r: 0.13 },
   skills: { ...wide.skills, x: 1.04, y: 0.92, r: 0.15 },
   projects: { ...wide.projects, x: 0, y: -2.25, r: 0.9 },
+  orbit: { ...wide.orbit, y: 0.02, r: 0.085 },
   contact: { ...wide.contact, y: 0.02, r: 0.2 },
   detail: { ...wide.detail, x: 1.0, y: 0.9, r: 0.11 },
   'detail-end': { ...wide['detail-end'], y: 0.02, r: 0.2 },

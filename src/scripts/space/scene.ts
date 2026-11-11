@@ -24,7 +24,17 @@ import {
   type Texture,
 } from 'three';
 import type { Frame, SpaceRenderer } from './controller';
-import { applyRig, Director, makeRig, TELE_DISTANCE, TELE_FOV } from './camera';
+import { applyRig, copyRig, Director, makeRig, mixRig, nearAngle, TELE_DISTANCE, TELE_FOV, type Rig } from './camera';
+import { PlanetSystem, type PlanetDef, type PlanetSpot } from './planets';
+
+/** What the page needs to know about the orbit, every frame it is on. */
+export interface OrbitState {
+  weight: number;
+  spots: PlanetSpot[];
+  focus: string | null;
+  /** 0..1 while the camera travels to a new target, 1 when it has arrived. */
+  travel: number;
+}
 
 export type Quality = 'high' | 'low';
 
@@ -250,8 +260,22 @@ export class MoonScene implements SpaceRenderer {
   // the Moon exactly like a flat camera would, so the poses keep their meaning.
   private camera = new PerspectiveCamera(TELE_FOV, 1, 0.1, TELE_DISTANCE + 200);
   private director = new Director();
+  private tele = makeRig();
+  private orbitRig = makeRig();
+  private focusRig = makeRig();
   private explore = makeRig();
   private view = new Matrix4();
+  private planets: PlanetSystem;
+  private moonAt = new Vector3();
+  private lean = new Vector3();
+  private focusYaw = 0;
+  private prevTime = -1;
+  private weight = 0;
+  private width = 1;
+  private height = 1;
+  private spotsOn = false;
+  /** Called every frame the orbit is on (and once when it goes off), for the labels and the panel. */
+  onOrbit: ((state: OrbitState) => void) | null = null;
   private moon: Mesh<SphereGeometry, ShaderMaterial>;
   private glow: Mesh<PlaneGeometry, ShaderMaterial>;
   private stars: Points<BufferGeometry, ShaderMaterial>;
@@ -303,7 +327,8 @@ export class MoonScene implements SpaceRenderer {
     this.stars.renderOrder = 0;
     this.glow.renderOrder = 1;
     this.moon.renderOrder = 2;
-    this.scene.add(this.stars, this.glow, this.moon);
+    this.planets = new PlanetSystem(quality);
+    this.scene.add(this.stars, this.glow, this.moon, this.planets.group);
 
     canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
 
@@ -364,6 +389,8 @@ export class MoonScene implements SpaceRenderer {
   }
 
   resize(width: number, height: number) {
+    this.width = width;
+    this.height = height;
     this.aspect = width / Math.max(1, height);
     this.camera.aspect = this.aspect;
     this.camera.updateProjectionMatrix();
@@ -382,8 +409,13 @@ export class MoonScene implements SpaceRenderer {
     this.moon.rotation.copy(this.euler);
     this.moon.updateMatrixWorld();
 
+    const dt = this.prevTime < 0 ? 0 : Math.min(0.1, Math.max(0, f.time - this.prevTime));
+    this.prevTime = f.time;
+    this.weight = f.orbit;
+    this.moonAt.set(x, y, 0);
+    this.planets.update({ dt, weight: f.orbit, progress: f.orbitProgress, moon: this.moonAt, moonRadius: radius });
     this.camera.aspect = this.aspect;
-    applyRig(this.camera, this.director.update(this.explore, 0));
+    applyRig(this.camera, this.director.update(this.wanted(f.orbit, f.orbitProgress), dt));
     // The shading works in view space: the Moon's turn as the camera sees it.
     this.view.multiplyMatrices(this.camera.matrixWorldInverse, this.moon.matrixWorld);
     this.rotation.extractRotation(this.view);
@@ -404,19 +436,128 @@ export class MoonScene implements SpaceRenderer {
     const g = this.glow.material.uniforms;
     this.glow.position.set(x, y, 0);
     this.glow.quaternion.copy(this.camera.quaternion);
+    // Inside the orbit the corona sits among the planets: the ones in front of the Moon hide it.
+    this.glow.material.depthTest = f.orbit > 0.001;
     this.glow.scale.setScalar(radius * 2 * 2.6);
     g.uStrength.value = (0.22 + 1.35 * Math.pow(e, 2.2)) * intro;
     g.uEclipse.value = e;
     (g.uSun.value as Vector2).set(this.light.x, this.light.y);
     g.uTime.value = f.time;
 
+    this.planets.light(this.camera, this.light);
+
+    // The stars turn with the camera, so a move round the Moon reads as travel.
+    const rig = this.director.rig;
     const s = this.stars.material.uniforms;
-    (s.uShift.value as Vector2).set(f.pointer[0] * -0.006, f.screens * 0.05 + f.pointer[1] * -0.006);
+    (s.uShift.value as Vector2).set(f.pointer[0] * -0.006 - rig.yaw * 0.08, f.screens * 0.05 + f.pointer[1] * -0.006 + rig.pitch * 0.12);
     s.uTime.value = f.time;
     s.uFade.value = Math.min(1, f.intro * 2.2);
 
     this.renderer.render(this.scene, this.camera);
+    this.report();
     this.watch(f);
+  }
+
+  /** The rig of whatever the camera follows now. */
+  private wanted(weight: number, progress: number): Rig {
+    copyRig(this.explore, this.tele);
+    if (weight > 0) {
+      this.makeOrbitRig(progress);
+      const w = weight * weight * (3 - 2 * weight);
+      mixRig(this.explore, this.tele, this.orbitRig, w);
+    }
+    const src = this.director.source;
+    if (src.kind === 'focus') {
+      const rig = this.makeFocusRig(src.id);
+      if (rig) return rig;
+    }
+    return this.explore;
+  }
+
+  /** The exploration: the camera circles the Moon as the section scrolls, dipping towards the plane of
+   *  the orbits half-way, and leans towards one planet after another as their moments come. */
+  private makeOrbitRig(s: number) {
+    const r = this.orbitRig;
+    const R = this.moon.scale.x;
+    const reach = this.planets.reach * R;
+    const planets = this.planets.shownWorld();
+    this.lean.set(0, 0, 0);
+    let spot = 0;
+    planets.forEach((p, k) => {
+      const at = 0.14 + (0.72 * (k + 0.5)) / planets.length;
+      const w = Math.exp(-(((s - at) / 0.1) ** 2));
+      this.lean.addScaledVector(this.tmpV.copy(p).sub(this.moonAt), w);
+      spot += w;
+    });
+    r.target.copy(this.moonAt).addScaledVector(this.lean, 0.5);
+    r.yaw = 0.35 + s * Math.PI * 1.5;
+    r.pitch = 0.42 + (0.3 - 0.42) * s - 0.26 * Math.sin(Math.PI * s);
+    const fit = Math.min(1.5, Math.max(1, (reach * 1.02) / this.aspect));
+    r.frame = fit * (1 - 0.3 * Math.min(1, spot));
+    r.fov = 30;
+    r.shiftX = 0;
+    r.shiftY = 0;
+  }
+
+  /** Close on one planet, from outside its orbit, with the Moon behind it. The planet sits to the left
+   *  of the panel on wide screens, above it on tall ones. It follows the planet round its orbit. */
+  private makeFocusRig(id: string): Rig | null {
+    const p = this.planets.where(id);
+    if (!p) return null;
+    const r = this.focusRig;
+    const tall = this.aspect < 0.85;
+    r.target.copy(p.at);
+    const out = this.tmpV.copy(p.at).sub(this.moonAt);
+    this.focusYaw = nearAngle(Math.atan2(out.x, out.z) + 0.5, this.focusYaw);
+    r.yaw = this.focusYaw;
+    r.pitch = 0.16;
+    r.frame = p.radius / (tall ? 0.28 : 0.36);
+    r.fov = 34;
+    r.shiftX = tall ? 0 : -0.36;
+    r.shiftY = tall ? 0.44 : 0.02;
+    return r;
+  }
+
+  private tmpV = new Vector3();
+
+  /** Tell the page where the planets are. */
+  private report() {
+    if (!this.onOrbit) return;
+    const on = this.weight > 0.001;
+    if (!on && !this.spotsOn) return;
+    this.spotsOn = on;
+    const src = this.director.source;
+    this.onOrbit({
+      weight: this.weight,
+      spots: on ? this.planets.spots(this.camera, this.width, this.height) : [],
+      focus: src.kind === 'focus' ? src.id : null,
+      travel: this.director.progress,
+    });
+  }
+
+  // ---- The orbit, as the page sees it ----
+
+  get busy() { return this.weight > 0.001 || !this.director.settled; }
+
+  setPlanets(defs: PlanetDef[]) { this.planets.set(defs); }
+  showPlanets(ids: string[]) { this.planets.show(ids); }
+  hover(id: string | null) { this.planets.hover(id); }
+
+  /** Fly to a planet, or back to the exploration with null. */
+  focus(id: string | null) {
+    const src = this.director.source;
+    const current = src.kind === 'focus' ? src.id : null;
+    if (id === current) return;
+    if (id && !this.planets.has(id)) return;
+    if (id && !current) this.focusYaw = this.director.rig.yaw;
+    this.director.follow(id ? { kind: 'focus', id } : { kind: 'explore' }, id ? 1.9 : 1.6);
+    this.planets.focus(id);
+  }
+
+  /** The planet under a point of the screen, in CSS pixels. */
+  pick(x: number, y: number, margin = 22): string | null {
+    if (this.weight < 0.5) return null;
+    return this.planets.pick(this.camera, this.width, this.height, x, y, margin);
   }
 
   /** Steps quality down when frames keep arriving late. */
@@ -442,6 +583,7 @@ export class MoonScene implements SpaceRenderer {
   }
 
   dispose() {
+    this.planets.dispose();
     this.map?.dispose();
     this.moon.geometry.dispose();
     this.moon.material.dispose();
