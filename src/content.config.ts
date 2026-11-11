@@ -14,7 +14,7 @@ const projects = defineCollection({
       status: z.enum(['completed', 'in-progress', 'archived']),
       /** Featured projects get a full expedition; the rest are listed compactly under them. */
       featured: z.boolean().default(false),
-      /** Used by the filters. Any new category shows up as a filter by itself. */
+      /** Kinds of project. Kept in the data; the site does not show them at the moment. */
       categories: z.array(z.string()).default([]),
       /** Last meaningful update, used when the list is sorted by date. */
       date: z.coerce.date(),

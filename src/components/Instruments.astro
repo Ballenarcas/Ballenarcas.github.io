@@ -1,5 +1,5 @@
 ---
-// The fixed instruments of the home page: the rail of scenes and the distance read-out.
+// The fixed instrument of the home page: the rail of scenes.
 import { t, type Lang } from '../i18n/ui';
 interface Props { lang: Lang }
 const { lang } = Astro.props;
@@ -18,7 +18,3 @@ const scenes = [
     ))}
   </ol>
 </nav>
-<div class="telemetry hud" aria-hidden="true">
-  {t(lang, 'telemetry.label')}
-  <output data-telemetry data-done={t(lang, 'telemetry.done')}>384,400 km</output>
-</div>

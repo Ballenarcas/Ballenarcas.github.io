@@ -12,11 +12,10 @@ const d = project.data;
 const slug = slugOf(project);
 const href = `/${lang}/projects/${slug}/`;
 const portrait = d.videoOrientation === 'portrait';
-const cats = d.categories.join('|');
 const number = String(index + 1).padStart(2, '0');
 ---
 {compact ? (
-  <article class="exp-row" data-cats={cats} style={`--accent:${d.accent}`}>
+  <article class="exp-row" style={`--accent:${d.accent}`}>
     <Planet accent={d.accent} />
     <h4><a href={href}>{d.title}</a> <StatusBadge lang={lang} status={d.status} /></h4>
     <p>{d.summary}</p>
@@ -27,7 +26,7 @@ const number = String(index + 1).padStart(2, '0');
     </div>
   </article>
 ) : (
-  <article class={`exp ${portrait ? 'portrait' : 'landscape'}`} data-cats={cats} style={`--accent:${d.accent}`}>
+  <article class={`exp ${portrait ? 'portrait' : 'landscape'}`} style={`--accent:${d.accent}`}>
     <div class="exp-visual" data-r>
       <div class="orbit"><i></i></div>
       <a class={`exp-shot ${portrait ? 'portrait' : 'landscape'}`} href={href} aria-label={`${t(lang, 'work.open')}: ${d.title}`} data-depth="0.08">

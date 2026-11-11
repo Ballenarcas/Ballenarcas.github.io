@@ -1,22 +1,67 @@
 ---
-// Each group of technologies is drawn as a constellation: one star per technology, joined by a line.
+// The technologies as six constellations. The charts (positions, sizes, links) come from src/data/skills.ts.
 import * as icons from 'simple-icons';
-import { skillGroups } from '../data/skills';
+import { skillGroups, type Skill } from '../data/skills';
 import { t, type Lang } from '../i18n/ui';
 import SceneLabel from './SceneLabel.astro';
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 
-// Star charts: where the stars of a constellation sit, in percent of its box. A group uses the first
-// points of its chart, so a technology can be added to the data without touching this file.
-const base: Array<[number, number][]> = [
-  [[12, 18], [44, 10], [80, 22], [64, 56], [28, 50], [14, 82], [50, 84], [86, 82]],
-  [[10, 50], [36, 14], [70, 12], [88, 48], [58, 48], [30, 82], [70, 84], [8, 16]],
-];
-const flipX = (c: [number, number][]) => c.map(([x, y]) => [100 - x, y] as [number, number]);
-const flipY = (c: [number, number][]) => c.map(([x, y]) => [x, 94 - y] as [number, number]);
-const charts = [base[0], flipX(base[1]), flipY(base[0]), base[1], flipX(base[0]), flipY(flipX(base[1]))];
-const iconPath = (name?: string) => (name ? (icons as unknown as Record<string, { path: string } | undefined>)[name]?.path : undefined);
+/** Positions for stars that have none: a zigzag that respects the spacing rule. */
+function place(items: Skill[]) {
+  const rows = Math.ceil(items.length / 2);
+  return items.map((s, i) => {
+    if (s.x !== undefined && s.y !== undefined) return [s.x, s.y];
+    const row = Math.floor(i / 2);
+    const y = rows === 1 ? 40 : 10 + (row * 75) / (rows - 1);
+    const left = row % 2 === 0 ? 20 : 34;
+    return [i % 2 === 0 ? left : left + 46, y];
+  });
+}
+/** Where each name goes: below its star unless a line leaves that way, then above, then to a side. */
+function labelSides(points: number[][], links: [number, number][]) {
+  const sides: Array<['below', 90] | ['above', 270] | ['right', 0] | ['left', 180]> = [['below', 90], ['above', 270], ['right', 0], ['left', 180]];
+  return points.map(([x, y], i) => {
+    const angles = links.filter(([a, b]) => a === i || b === i).map(([a, b]) => {
+      const [ox, oy] = points[a === i ? b : a];
+      return (Math.atan2(oy - y, ox - x) * 180) / Math.PI;
+    });
+    const clear = (deg: number) => Math.min(180, ...angles.map((a) => { const d = Math.abs(((a - deg) % 360 + 540) % 360 - 180); return d; }));
+    for (const [name, deg] of sides) {
+      if (name === 'right' && x > 58) continue;
+      if (name === 'left' && x < 42) continue;
+      if (name === 'above' && y < 22) continue;
+      if (name === 'below' && y > 84) continue;
+      // A name above or below is wide and flat, so lines must leave more steeply clear of it.
+      if (clear(deg) >= (name === 'below' || name === 'above' ? 62 : 40)) return name;
+    }
+    return sides.map(([n, d]) => [n, clear(d)] as const).sort((p, q) => q[1] - p[1])[0][0];
+  });
+}
+// Each constellation sits in the sky at its own angle, so the six do not read as copies of one shape.
+const tilts = [-9, 11, -14, 6, 9, -7];
+function tilt(points: number[][], deg: number) {
+  const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  return points.map(([x, y]) => {
+    const dx = (x - 50) * 0.92, dy = (y - 50) * 0.92;
+    return [50 + dx * c - dy * s, 50 + dx * s + dy * c];
+  });
+}
+
+/** Faint stars around a constellation, always the same for the same group, kept clear of its stars. */
+function fieldStars(seed: number, points: number[][]) {
+  let state = seed * 9301 + 49297;
+  const rnd = () => ((state = (state * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const out: Array<{ x: number; y: number; s: number; o: number; d: number }> = [];
+  for (let tries = 0; out.length < 18 && tries < 200; tries++) {
+    const x = 4 + rnd() * 92, y = 4 + rnd() * 92;
+    if (points.some(([px, py]) => Math.hypot(px - x, py - y) < 13)) continue;
+    out.push({ x, y, s: rnd() < 0.15 ? 2.2 : 1 + rnd() * 0.8, o: 0.25 + rnd() * 0.45, d: rnd() * 6 });
+  }
+  return out;
+}
+const iconPath = (item: Skill) =>
+  item.icon ? (icons as unknown as Record<string, { path: string } | undefined>)[item.icon]?.path : undefined;
 ---
 <section class="scene skills" id="skills" data-pose="skills">
   <div class="scene-head">
@@ -26,24 +71,34 @@ const iconPath = (name?: string) => (name ? (icons as unknown as Record<string, 
   </div>
   <div class="sky">
     {skillGroups.map((group, g) => {
-      const chart = charts[g % charts.length];
-      const points = group.items.map((_, i) => chart[i % chart.length]);
+      const points = tilt(place(group.items), tilts[g % tilts.length]);
+      const field = fieldStars(g + 1, points);
+      const links = group.links ?? group.items.slice(1).map((_, i) => [i, i + 1] as [number, number]);
+      const sides = labelSides(points, links);
       return (
-        <div class="constellation" data-r data-lean={6 + (g % 3) * 5}>
-          <h3 class="hud">{group.name[lang]}</h3>
+        <div class="constellation" data-r data-constellation data-lean={4 + (g % 3) * 3}>
+          <h3>{group.name[lang]}</h3>
           <div class="c-map">
+            <div class="c-field" aria-hidden="true">
+              {field.map((f) => <i style={`left:${f.x.toFixed(1)}%;top:${f.y.toFixed(1)}%;--s:${f.s.toFixed(1)}px;--o:${f.o.toFixed(2)};--d:${f.d.toFixed(1)}s`}></i>)}
+            </div>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <polyline pathLength="1" points={points.map(([x, y]) => `${x},${y}`).join(' ')} />
+              {links.map(([a, b], i) => (
+                <line x1={points[a][0].toFixed(2)} y1={points[a][1].toFixed(2)} x2={points[b][0].toFixed(2)} y2={points[b][1].toFixed(2)} pathLength="1" data-a={a} data-b={b} style={`--n:${i}`} />
+              ))}
             </svg>
             <ul>
               {group.items.map((item, i) => {
-                const path = iconPath(item.icon);
+                const path = iconPath(item);
                 return (
-                  <li class="c-node" style={`left:${points[i][0]}%;top:${points[i][1]}%;--n:${i}`}>
-                    <i class={`star${path ? '' : ' plain'}`}>
-                      {path && <svg viewBox="0 0 24 24" aria-hidden="true"><path d={path} /></svg>}
-                    </i>
-                    <span>{item.name}</span>
+                  <li class="c-node" data-i={i} data-size={item.size ?? 2} data-side={sides[i]} tabindex="0"
+                    style={`left:${points[i][0].toFixed(2)}%;top:${points[i][1].toFixed(2)}%;--n:${i};--glow:${item.glow ?? 0.6}`}>
+                    <i class="star" aria-hidden="true"></i>
+                    <span title={item.name}>
+                      {path ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d={path} /></svg>
+                        : <b aria-hidden="true">{item.mono ?? item.name.slice(0, 2)}</b>}
+                      <em>{item.name}</em>
+                    </span>
                   </li>
                 );
               })}

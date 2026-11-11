@@ -13,7 +13,7 @@ year: 2026
 stack: []
 repo: "https://github.com/Ballenarcas/"
 # demo: "https://..."        # optional
-accent: "#9CC0FF"            # colour of the project's planet
+accent: "#A98AD8"            # colour of the project's planet
 cover: "../../../assets/projects/<slug>/cover.jpg"
 coverAlt: ""
 gallery: []                  # - { src: "../../../assets/projects/<slug>/one.jpg", alt: "" }

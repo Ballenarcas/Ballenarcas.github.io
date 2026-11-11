@@ -13,6 +13,3 @@ export async function projectsFor(lang: Lang, sort: 'priority' | 'date' = projec
     : (a: Project, b: Project) => a.data.order - b.data.order;
   return all.sort((a, b) => Number(b.data.featured) - Number(a.data.featured) || by(a, b));
 }
-
-/** Every category in use, in order of first appearance. */
-export const categoriesOf = (projects: Project[]) => [...new Set(projects.flatMap((p) => p.data.categories))];

@@ -1,34 +1,56 @@
 ---
-// The list of projects. It is built from the data files: featured projects become full expeditions,
-// the rest a compact list, and the filter shows whatever categories the projects declare.
+// The projects. With the 3D scene they are planets around the Moon: the section becomes a pinned
+// stage the scroll travels through, with a label per planet and a panel for the selected one.
+// Without it (no WebGL, reduced motion, no script) the same projects are a list of expeditions.
+// Both are built from the data files, featured projects first.
 import { t, type Lang } from '../i18n/ui';
-import { categoriesOf, type Project } from '../lib';
+import { slugOf, type Project } from '../lib';
 import Expedition from './Expedition.astro';
+import OrbitCard from './OrbitCard.astro';
 import SceneLabel from './SceneLabel.astro';
 interface Props { lang: Lang; projects: Project[] }
 const { lang, projects } = Astro.props;
 const featured = projects.filter((p) => p.data.featured);
 const rest = projects.filter((p) => !p.data.featured);
-const categories = categoriesOf(projects);
+// Length of the journey through the orbit, in screens: more planets, a longer trip.
+const screens = (2.5 + 0.8 * projects.length).toFixed(2);
 ---
 <section class="scene expeditions" id="expeditions" data-pose="projects">
-  <div class="scene-head">
-    <SceneLabel n={4} text={t(lang, 'nav.work')} />
-    <h2 class="display" data-r style="--d:1">{t(lang, 'work.title')}</h2>
-    <p class="lead" data-r style="--d:2">{t(lang, 'work.statement')}</p>
+  <div class="orbit-track" data-orbit-track style={`--screens:${screens}`}>
+    <div class="orbit-stage" data-orbit-stage>
+      <div class="orbit-head">
+        <div class="scene-head">
+          <SceneLabel n={4} text={t(lang, 'nav.work')} />
+          <h2 class="display" data-r style="--d:1">{t(lang, 'work.title')}</h2>
+          <p class="lead" data-r style="--d:2">{t(lang, 'work.statement')}</p>
+        </div>
+      </div>
+      <div class="orbit-sky" data-orbit-sky>
+        <ul class="orbit-labels" aria-label={t(lang, 'work.planets')}>
+          {projects.map((p, i) => (
+            <li>
+              <button type="button" class="orbit-label" data-planet={slugOf(p)} data-accent={p.data.accent} data-featured={String(p.data.featured)}
+                aria-controls="orbit-panel" aria-expanded="false" style={`--accent:${p.data.accent}`}>
+                <span>{p.data.title}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p class="orbit-hint hud" aria-hidden="true">{t(lang, 'work.orbitHint')}</p>
+      </div>
+      <div class="orbit-panel" id="orbit-panel" data-orbit-panel role="dialog" aria-modal="false" hidden>
+        <button type="button" class="orbit-close" data-orbit-close aria-label={t(lang, 'work.close')}><span aria-hidden="true">×</span></button>
+        {projects.map((p, i) => <OrbitCard lang={lang} project={p} index={i} />)}
+      </div>
+    </div>
   </div>
-  {categories.length > 1 && (
-    <div class="filter" data-filter role="group" aria-label={t(lang, 'work.filter')} data-r style="--d:3">
-      <button type="button" data-cat="*" aria-pressed="true">{t(lang, 'work.all')}</button>
-      {categories.map((c) => <button type="button" data-cat={c} aria-pressed="false">{c}</button>)}
-      <span class="hud filter-count" aria-live="polite"><span data-filter-count>{projects.length}</span> {t(lang, 'work.count')}</span>
-    </div>
-  )}
-  {featured.map((p, i) => <Expedition lang={lang} project={p} index={i} />)}
-  {rest.length > 0 && (
-    <div class="more">
-      <h3 class="hud">{t(lang, 'work.more')}</h3>
-      {rest.map((p, i) => <Expedition lang={lang} project={p} index={featured.length + i} compact />)}
-    </div>
-  )}
+  <div class="exp-list">
+    {featured.map((p, i) => <Expedition lang={lang} project={p} index={i} />)}
+    {rest.length > 0 && (
+      <div class="more">
+        <h3 class="hud">{t(lang, 'work.more')}</h3>
+        {rest.map((p, i) => <Expedition lang={lang} project={p} index={featured.length + i} compact />)}
+      </div>
+    )}
+  </div>
 </section>

@@ -1,13 +1,17 @@
-/* Lunar Experience. One dark field, white and silver type, one pale blue accent. */
+/* Violet Moon. One dark field, silver type, violet light. */
 :root {
-  --bg: #03050a;
-  --ink: #eef2f8;
-  --silver: #b6bfcd;
-  --dim: #8590a3;
-  --line: rgba(190, 208, 235, 0.16);
-  --line-strong: rgba(190, 208, 235, 0.34);
-  --blue: #9cc0ff;
-  --accent: var(--blue);
+  /* Violet Moon */
+  --bg: #080711;        /* Space Black: the field */
+  --surface: #111020;   /* Deep Space: panels */
+  --deep: #251638;      /* Deep Purple: secondary fields */
+  --royal: #65428D;     /* Royal Violet: accents, never text (2.6:1 on the field) */
+  --soft: #A98AD8;      /* Soft Violet: light, focus and highlighted text (7:1) */
+  --ink: #DDD5E9;       /* Lunar Silver: headings and strong text (14:1) */
+  --silver: #BDB3CF;    /* body text (10:1) */
+  --dim: #9C91B4;       /* quiet labels (6.8:1) */
+  --line: rgba(201, 182, 236, 0.16);
+  --line-strong: rgba(201, 182, 236, 0.34);
+  --accent: var(--soft);
 
   --m: clamp(20px, 4.4vw, 72px);
   --gap: clamp(96px, 14vw, 200px);
@@ -37,7 +41,7 @@ img, video, svg { display: block; max-width: 100%; }
 img, video { height: auto; }
 a { color: inherit; text-decoration: none; }
 [hidden] { display: none !important; }
-:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--soft); outline-offset: 4px; border-radius: 4px; }
 ::selection { background: var(--ink); color: var(--bg); }
 
 /* ---------- Type ---------- */
@@ -46,12 +50,12 @@ a { color: inherit; text-decoration: none; }
 .lead { font-size: clamp(18px, 1.5vw, 22px); line-height: 1.5; color: var(--silver); max-width: 34ch; text-wrap: pretty; }
 .label { display: flex; align-items: center; gap: 14px; color: var(--silver); }
 .label::after { content: ''; width: 44px; height: 1px; background: var(--line-strong); }
-.label b { font-weight: 500; color: var(--blue); }
+.label b { font-weight: 500; color: var(--soft); }
 
 /* ---------- Buttons and links ---------- */
 .btn {
   display: inline-flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 24px;
-  border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(3, 5, 10, 0.35);
+  border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(8, 7, 17, 0.35);
   font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
   transition: background-color 0.35s var(--ease), color 0.35s var(--ease), border-color 0.35s, transform 0.35s var(--ease);
 }
@@ -72,18 +76,18 @@ a { color: inherit; text-decoration: none; }
 .space::before {
   content: ''; position: absolute; inset: -10%;
   background:
-    radial-gradient(58% 46% at 80% 16%, rgba(52, 86, 168, 0.2), transparent 70%),
-    radial-gradient(48% 44% at 10% 82%, rgba(30, 58, 128, 0.17), transparent 70%),
-    radial-gradient(40% 30% at 52% 58%, rgba(84, 72, 150, 0.06), transparent 70%);
+    radial-gradient(58% 46% at 80% 16%, rgba(101, 66, 141, 0.26), transparent 70%),
+    radial-gradient(48% 44% at 10% 82%, rgba(70, 40, 110, 0.24), transparent 70%),
+    radial-gradient(40% 30% at 52% 58%, rgba(120, 80, 170, 0.08), transparent 70%);
 }
 /* A sparse still sky, shown until (or instead of) the live one. */
 .space::after {
   content: ''; position: absolute; inset: 0; opacity: 0.75; transition: opacity 1.2s;
   background-image:
-    radial-gradient(1px 1px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 78% 9%, #cfe0ff, transparent),
+    radial-gradient(1px 1px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 78% 9%, #e6dcff, transparent),
     radial-gradient(1.4px 1.4px at 33% 72%, #fff, transparent), radial-gradient(1px 1px at 91% 55%, #fff, transparent),
-    radial-gradient(1px 1px at 58% 34%, #dfe9ff, transparent), radial-gradient(1.6px 1.6px at 6% 61%, #fff, transparent),
-    radial-gradient(1px 1px at 46% 88%, #fff, transparent), radial-gradient(1px 1px at 68% 78%, #cfe0ff, transparent),
+    radial-gradient(1px 1px at 58% 34%, #e6dcff, transparent), radial-gradient(1.6px 1.6px at 6% 61%, #fff, transparent),
+    radial-gradient(1px 1px at 46% 88%, #fff, transparent), radial-gradient(1px 1px at 68% 78%, #e6dcff, transparent),
     radial-gradient(1.2px 1.2px at 24% 43%, #fff, transparent), radial-gradient(1px 1px at 86% 28%, #fff, transparent);
   background-size: 620px 540px;
 }
@@ -94,16 +98,15 @@ a { color: inherit; text-decoration: none; }
 .space.is-flat .moon2d { display: block; }
 /* Reduced motion or no script: a still Moon over the first screen, and the sky scrolls away with it. */
 .space.is-static, html:not(.js) .space { position: absolute; height: 100svh; }
-.space.is-static ~ .page .telemetry { display: none; }
 .space.is-static .moon2d, html:not(.js) .moon2d { display: block; top: 37%; width: 37svh; height: 37svh; margin: -18.5svh 0 0 -18.5svh; }
 .grain { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0.035;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
 .page { position: relative; z-index: 1; overflow-x: clip; }
 
-/* ---------- Fixed instruments: navigation, scene rail, telemetry ---------- */
+/* ---------- Fixed instruments: navigation and scene rail ---------- */
 .nav { position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px var(--m); }
-.nav::before { content: ''; position: absolute; inset: 0 0 -28px 0; z-index: -1; background: linear-gradient(to bottom, rgba(3, 5, 10, 0.86), rgba(3, 5, 10, 0)); pointer-events: none; }
+.nav::before { content: ''; position: absolute; inset: 0 0 -28px 0; z-index: -1; background: linear-gradient(to bottom, rgba(8, 7, 17, 0.86), rgba(8, 7, 17, 0)); pointer-events: none; }
 .nav a { color: var(--silver); transition: color 0.25s; }
 .nav a:hover, .nav a[aria-current] { color: var(--ink); }
 .nav-mark { color: var(--ink) !important; letter-spacing: 0.3em; padding: 12px 0; }
@@ -113,7 +116,7 @@ a { color: inherit; text-decoration: none; }
 .nav-menu { position: relative; }
 .nav-menu summary { list-style: none; cursor: pointer; color: var(--ink); padding: 12px 0; }
 .nav-menu summary::-webkit-details-marker { display: none; }
-.nav-menu ul { position: absolute; right: 0; top: 100%; min-width: 220px; display: grid; gap: 4px; padding: 18px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(6, 9, 16, 0.96); }
+.nav-menu ul { position: absolute; right: 0; top: 100%; min-width: 220px; display: grid; gap: 4px; padding: 18px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(17, 16, 32, 0.96); }
 .nav-menu li a { display: block; padding: 11px 0; color: var(--ink); }
 @media (min-width: 900px) { .nav-links { display: flex; } .nav-menu { display: none; } }
 
@@ -122,12 +125,10 @@ a { color: inherit; text-decoration: none; }
 .rail a { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 8px 0; color: var(--dim); transition: color 0.3s; }
 .rail a span { opacity: 0; transform: translateX(8px); transition: opacity 0.3s, transform 0.4s var(--ease); }
 .rail a::after { content: ''; width: 14px; height: 1px; background: currentColor; transition: width 0.4s var(--ease); }
-.rail a:hover span, .rail a[aria-current] span { opacity: 1; transform: none; }
+.rail a:hover span, .rail a:focus-visible span { opacity: 1; transform: none; }
 .rail a:hover, .rail a[aria-current] { color: var(--ink); }
-.rail a[aria-current]::after { width: 34px; background: var(--blue); }
-.telemetry { position: fixed; left: calc(var(--m) - 12px); bottom: 14px; z-index: 15; display: none; padding: 8px 12px; border-radius: 10px; background: rgba(3, 5, 10, 0.55); }
-.telemetry output { display: block; color: var(--ink); font-size: 13px; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; }
-@media (min-width: 1100px) and (min-height: 620px) { .rail { display: block; } .telemetry { display: block; } }
+.rail a[aria-current]::after { width: 34px; background: var(--soft); }
+@media (min-width: 1100px) and (min-height: 620px) { .rail { display: block; } }
 
 /* ---------- Entrances. Content is only hidden while the script that reveals it is running. ---------- */
 .js [data-r] { opacity: 0; transform: translateY(26px); transition: opacity 1s var(--ease), transform 1.1s var(--ease); transition-delay: calc(var(--d, 0) * 90ms); }
@@ -150,53 +151,96 @@ a { color: inherit; text-decoration: none; }
 
 /* ---------- Scenes ---------- */
 .scene { position: relative; padding: var(--gap) var(--m); }
-.scene-head { display: grid; gap: 20px; max-width: 760px; }
+.scene-head { display: grid; gap: 20px; max-width: 760px; text-shadow: 0 0 22px rgba(8, 7, 17, 0.95), 0 0 4px rgba(8, 7, 17, 0.8); }
 
 /* 02 About: the text holds its place while the Moon grows beside it. */
 .about { padding-block: 0; }
 .about-inner { display: grid; gap: 22px; align-content: center; max-width: 600px; padding-block: var(--gap); }
 .about-inner p:not(.hud) { max-width: 52ch; }
-.about-inner { text-shadow: 0 0 18px rgba(3, 5, 10, 0.9); }
+.about-inner { text-shadow: 0 0 18px rgba(8, 7, 17, 0.9); }
 .interests { display: grid; gap: 8px; margin-top: 8px; }
 .interests li { display: flex; gap: 12px; color: var(--silver); }
-.interests li::before { content: '+'; color: var(--blue); }
+.interests li::before { content: '+'; color: var(--soft); }
 @media (min-width: 900px) {
   .about { min-height: 175svh; }
   .about-inner { position: sticky; top: 0; min-height: 100svh; padding-block: 96px 48px; }
 }
 
-/* 03 Skills: constellations */
-.sky { display: grid; gap: 56px 40px; margin-top: clamp(48px, 7vw, 96px); }
-.constellation h3 { color: var(--ink); display: flex; align-items: center; gap: 12px; }
-.constellation h3::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 12px var(--blue); }
-.c-map { position: relative; aspect-ratio: 5 / 3.5; margin-top: 10px; }
+/* 03 Skills: constellations, loose in the night sky */
+.sky { display: grid; gap: clamp(40px, 5vw, 72px) clamp(24px, 4vw, 64px); margin-top: clamp(56px, 8vw, 112px); }
+.constellation { position: relative; transition: opacity 0.6s var(--ease); }
+/* The name of a constellation, written on the sky like on an old star chart. */
+.constellation h3 { position: relative; z-index: 1; font-family: var(--display); font-weight: 300; font-size: clamp(17px, 1.5vw, 21px); letter-spacing: 0.02em; color: var(--dim); }
+.c-map { position: relative; aspect-ratio: 1; margin: 6px 0 0; }
+.c-field { position: absolute; inset: -6%; pointer-events: none; }
+.c-field i { position: absolute; width: var(--s); height: var(--s); border-radius: 50%; background: #efe8ff; opacity: var(--o); translate: -50% -50%;
+  animation: twinkle 7s ease-in-out infinite paused; animation-delay: calc(var(--d) * -1); }
+.sky.live .c-field i { animation-play-state: running; }
 .c-map > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.c-map polyline { fill: none; stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 2.6s var(--ease) 0.25s; }
-.constellation.in polyline, html:not(.js) .c-map polyline { stroke-dashoffset: 0; }
-.c-node { position: absolute; display: grid; justify-items: center; gap: 5px; width: 0; transform: translateY(-17px); }
-.c-node > * { flex: none; }
-.js .c-node { opacity: 0; transition: opacity 0.9s var(--ease); transition-delay: calc(var(--n) * 150ms + 300ms); }
+.c-map line { stroke: rgba(201, 182, 236, 0.34); stroke-width: 0.3; stroke-linecap: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.6s var(--ease), stroke 0.35s, stroke-width 0.35s;
+  transition-delay: calc(var(--n) * 160ms + 200ms), 0s, 0s; }
+.constellation.in line, html:not(.js) .c-map line { stroke-dashoffset: 0; }
+.c-map line.on { stroke: rgba(226, 214, 250, 0.95); stroke-width: 0.55; transition-delay: 0s; }
+.c-node { --core: 7px; position: absolute; width: 0; height: 0; outline: none; cursor: default; }
+.c-node[data-size='1'] { --core: 5px; }
+.c-node[data-size='3'] { --core: 10px; }
+.js .c-node { opacity: 0; transition: opacity 0.9s var(--ease); transition-delay: calc(var(--n) * 130ms + 350ms); }
 .js .constellation.in .c-node { opacity: 1; }
-.star { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: radial-gradient(circle, rgba(156, 192, 255, 0.22), rgba(156, 192, 255, 0) 70%); animation: float 7s ease-in-out infinite; animation-delay: calc(var(--n) * -1.1s); }
-.star svg { width: 17px; height: 17px; fill: currentColor; }
-.star.plain::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 10px 2px rgba(156, 192, 255, 0.7); }
-.c-node span { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--silver); white-space: nowrap; text-align: center; }
-@keyframes float { 50% { transform: translateY(-5px); } }
-@media (min-width: 700px) { .sky { grid-template-columns: 1fr 1fr; } .sky > :nth-child(even) { margin-top: 72px; } }
-@media (min-width: 1100px) { .sky { margin-right: 40%; } }
+/* A star: a hot core, a thin ring and a soft halo. Brightness follows its `glow`. */
+.star { position: absolute; left: 0; top: 0; width: var(--core); height: var(--core); translate: -50% -50%; border-radius: 50%;
+  background: #fbf8ff; box-shadow: 0 0 calc(4px + 10px * var(--glow)) calc(1px + 3px * var(--glow)) rgba(169, 138, 216, calc(0.35 + 0.5 * var(--glow)));
+  animation: twinkle 5.5s ease-in-out infinite; animation-delay: calc(var(--n) * -1.3s); transition: scale 0.35s var(--ease); }
+.star::before { content: ''; position: absolute; inset: calc(var(--core) * -0.9); border-radius: 50%; border: 1px solid rgba(201, 182, 236, calc(0.08 + 0.22 * var(--glow))); }
+.star::after { content: ''; position: absolute; inset: calc(var(--core) * -2.6); border-radius: 50%; background: radial-gradient(circle, rgba(169, 138, 216, calc(0.22 * var(--glow))), transparent 70%); }
+.c-node > span { position: absolute; left: 0; top: calc(var(--core) + 10px); translate: -50% 0; width: max-content; max-width: 132px;
+  display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
+  font-size: 12.5px; line-height: 1.25; color: var(--silver); text-align: center; text-wrap: balance;
+  text-shadow: 0 0 10px var(--bg), 0 0 4px var(--bg); transition: color 0.3s; }
+.c-node[data-side='above'] > span { top: auto; bottom: calc(var(--core) + 10px); }
+.c-node[data-side='right'] > span { top: 0; left: calc(var(--core) + 12px); translate: 0 -50%; justify-content: flex-start; text-align: left; }
+.c-node[data-side='left'] > span { top: 0; left: auto; right: calc(var(--core) + 12px); translate: 0 -50%; justify-content: flex-end; text-align: right; }
+.c-node > span em { font-style: normal; }
+.c-node > span svg { width: 13px; height: 13px; fill: currentColor; flex: none; opacity: 0.85; }
+.c-node > span b { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 1px 4px; border-radius: 4px; border: 1px solid currentColor; opacity: 0.85; }
+.c-node[data-size='3'] > span { color: var(--ink); }
+.c-node:hover .star, .c-node:focus-visible .star, .c-node.on .star { scale: 1.45; }
+.c-node:hover > span, .c-node:focus-visible > span, .c-node.on > span { color: var(--soft); }
+.c-node:focus-visible > span { outline: 1px solid var(--soft); outline-offset: 4px; border-radius: 4px; }
+@keyframes twinkle { 50% { opacity: 0.72; } }
+@media (hover: hover) {
+  .sky:hover .constellation:not(:hover) { opacity: 0.5; }
+  .constellation:hover h3 { color: var(--ink); }
+}
+/* Not a grid: each constellation has its own size and place in the sky. */
+@media (min-width: 700px) {
+  .sky { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .constellation:nth-child(even) { margin-top: 96px; }
+  .constellation:nth-child(4n + 1) { width: 88%; }
+  .constellation:nth-child(4n + 2) { width: 92%; justify-self: end; }
+  .constellation:nth-child(4n + 3) { width: 94%; justify-self: center; }
+}
+@media (min-width: 1100px) {
+  .sky { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-right: 96px; }
+  .constellation:nth-child(n) { margin-top: 0; width: auto; justify-self: stretch; }
+  .constellation:nth-child(1) { width: 92%; }
+  .constellation:nth-child(2) { margin-top: 120px; width: 84%; justify-self: center; }
+  .constellation:nth-child(3) { margin-top: 30px; width: 90%; justify-self: end; }
+  .constellation:nth-child(4) { margin-top: -40px; width: 86%; justify-self: end; }
+  .constellation:nth-child(5) { margin-top: 70px; width: 94%; }
+  .constellation:nth-child(6) { margin-top: -10px; width: 84%; justify-self: center; }
+}
+@media (max-width: 699px) {
+  .constellation:nth-child(odd) { width: 94%; }
+  .constellation:nth-child(even) { width: 90%; justify-self: end; }
+  .c-node > span { font-size: 12px; max-width: 108px; }
+}
 
 /* 04 Expeditions */
-.filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin-top: clamp(28px, 4vw, 48px); }
-.filter button { all: unset; cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); padding: 12px 0; position: relative; transition: color 0.25s; }
-.filter button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 6px; height: 1px; background: var(--blue); transform: scaleX(0); transform-origin: left; transition: transform 0.4s var(--ease); }
-.filter button:hover, .filter button[aria-pressed='true'] { color: var(--ink); }
-.filter button[aria-pressed='true']::after { transform: scaleX(1); }
-.filter button:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
-.filter-count { margin-left: auto; }
 
 .exp { display: grid; gap: 36px; padding-block: clamp(56px, 9vw, 130px); align-items: center; }
 .exp-visual { position: relative; perspective: 1500px; }
-.exp-shot { position: relative; z-index: 1; display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #0a0e17; box-shadow: 0 50px 90px -40px rgba(0, 0, 0, 0.9); transform: rotateY(-7deg) rotateX(2deg); transition: transform 0.9s var(--ease), border-color 0.4s; }
+.exp-shot { position: relative; z-index: 1; display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #111020; box-shadow: 0 50px 90px -40px rgba(0, 0, 0, 0.9); transform: rotateY(-7deg) rotateX(2deg); transition: transform 0.9s var(--ease), border-color 0.4s; }
 .exp-shot:hover { transform: none; border-color: var(--line-strong); }
 .exp-shot video, .exp-shot img { width: 100%; }
 .exp-shot.portrait { width: min(290px, 62vw); border-radius: 30px; margin-inline: auto; }
@@ -211,7 +255,7 @@ a { color: inherit; text-decoration: none; }
 .planet::after { content: ''; position: absolute; inset: 0; border-radius: 50%; opacity: 0.35; mix-blend-mode: overlay;
   background: repeating-linear-gradient(172deg, rgba(255, 255, 255, 0.5) 0 2px, transparent 2px 9px, rgba(0, 0, 0, 0.5) 9px 12px, transparent 12px 21px); }
 .exp-visual .planet { position: absolute; z-index: 2; left: -22px; top: -30px; }
-.exp-info { display: grid; gap: 18px; align-content: center; justify-items: start; text-shadow: 0 0 22px rgba(3, 5, 10, 0.95), 0 0 4px rgba(3, 5, 10, 0.8); }
+.exp-info { display: grid; gap: 18px; align-content: center; justify-items: start; text-shadow: 0 0 22px rgba(8, 7, 17, 0.95), 0 0 4px rgba(8, 7, 17, 0.8); }
 .exp-info .btn { text-shadow: none; }
 .exp-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; }
 .exp-name { font-family: var(--display); font-weight: 300; font-size: clamp(40px, 6vw, 92px); letter-spacing: -0.035em; line-height: 0.98; color: var(--ink); }
@@ -221,7 +265,7 @@ a { color: inherit; text-decoration: none; }
 .exp-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 26px; margin-top: 8px; }
 .status { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); }
 .status i { position: relative; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.status[data-status='in-progress'] { color: var(--blue); }
+.status[data-status='in-progress'] { color: var(--soft); }
 .status[data-status='in-progress'] i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: pulse 2.2s ease-out infinite; }
 .status[data-status='archived'] { color: var(--dim); }
 .status[data-status='archived'] i { background: none; box-shadow: inset 0 0 0 1px currentColor; }
@@ -243,15 +287,84 @@ a { color: inherit; text-decoration: none; }
 .exp-row p { grid-column: 2; max-width: 70ch; }
 .exp-row .exp-links { grid-column: 2; margin-top: 0; }
 
+/* 04 with the 3D scene: the orbit. The section is a pinned stage the scroll travels through.
+   Without the orbit (no WebGL, reduced motion, no script) the stage is plain flow and the list shows. */
+.orbit-sky, .orbit-panel { display: none; }
+.orbit-on .expeditions { padding: 0; }
+.orbit-on .exp-list { display: none; }
+.orbit-on .orbit-track { height: calc(var(--screens) * 100vh); }
+.orbit-on .orbit-stage { position: sticky; top: 0; height: 100svh; overflow: clip; }
+.orbit-on .orbit-head { position: relative; z-index: 3; padding: clamp(88px, 13svh, 128px) var(--m) 0; max-width: 760px; pointer-events: none; transition: opacity 0.6s var(--ease); }
+.orbit-on .orbit-head .display { font-size: clamp(32px, 4.4vw, 68px); }
+.orbit-on .orbit-head .lead { font-size: clamp(16px, 1.25vw, 19px); }
+.orbit-on .orbit-sky { display: block; position: absolute; inset: 0; z-index: 2; }
+.orbit-labels { position: absolute; inset: 0; pointer-events: none; }
+.orbit-label { all: unset; position: absolute; left: 0; top: 0; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; pointer-events: auto; will-change: transform; transition: opacity 0.4s; }
+.orbit-label > span { position: absolute; left: 50%; top: calc(100% + 8px); translate: -50% 0; white-space: nowrap; padding: 4px 9px; border-radius: 999px;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--silver);
+  background: rgba(8, 7, 17, 0.5); border: 1px solid transparent; text-shadow: 0 0 10px var(--bg); transition: color 0.3s, border-color 0.3s, background-color 0.3s; }
+.orbit-label::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 1px solid var(--accent); opacity: 0; scale: 0.92; transition: opacity 0.35s, scale 0.5s var(--ease); }
+.orbit-label:hover > span, .orbit-label:focus-visible > span, .orbit-label[aria-expanded='true'] > span { color: var(--ink); border-color: var(--line-strong); background: rgba(17, 16, 32, 0.8); }
+.orbit-label:hover::before, .orbit-label:focus-visible::before { opacity: 0.55; scale: 1; }
+.orbit-label:focus-visible { outline: none; }
+.orbit-label:focus-visible > span { outline: 2px solid var(--soft); outline-offset: 3px; }
+.orbit-label.is-off { pointer-events: none; }
+.orbit-stage:not(.is-live) .orbit-label { pointer-events: none; }
+.orbit-hint { position: absolute; left: 50%; bottom: clamp(20px, 5svh, 44px); translate: -50% 0; color: var(--dim); opacity: calc(var(--orbit, 0) * 0.9); transition: opacity 0.5s; pointer-events: none; }
+.orbit-stage.is-focus .orbit-hint { opacity: 0; }
+.orbit-stage.is-focus .orbit-head .scene-head { opacity: 0; }
+.orbit-stage.is-focus .orbit-label[aria-expanded='false'] > span { opacity: 0.5; }
+
+.orbit-on .orbit-panel:not([hidden]) { display: block; }
+.orbit-panel { position: absolute; z-index: 4; right: var(--m); top: 50%; width: min(400px, 36vw); max-height: calc(100svh - 150px); overflow: auto; overscroll-behavior: contain;
+  padding: 22px 24px 18px; border: 1px solid var(--line); border-radius: 20px; background: rgba(17, 16, 32, 0.84);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.9);
+  opacity: 0; transform: translate(24px, calc(-50% + 8px)); transition: opacity 0.6s var(--ease), transform 0.8s var(--ease); scrollbar-width: thin; }
+.orbit-panel.open { opacity: 1; transform: translate(0, -50%); }
+.orbit-close { all: unset; position: absolute; right: 12px; top: 12px; z-index: 1; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; cursor: pointer;
+  color: var(--ink); font-size: 22px; line-height: 1; border: 1px solid var(--line); background: rgba(8, 7, 17, 0.5); transition: background-color 0.3s, border-color 0.3s; }
+.orbit-close:hover { background: var(--deep); border-color: var(--line-strong); }
+.orbit-close:focus-visible { outline: 2px solid var(--soft); outline-offset: 3px; }
+.orbit-card { display: grid; gap: 12px; }
+.orbit-cover { display: block; margin: -4px 44px 6px 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--line); aspect-ratio: 16 / 10; background: var(--bg); }
+.orbit-cover img { width: 100%; height: 100%; object-fit: cover; object-position: top; transition: transform 0.9s var(--ease); }
+.orbit-cover:hover img { transform: scale(1.03); }
+.orbit-title { display: flex; align-items: center; gap: 14px; }
+.orbit-title .planet { --s: 30px; }
+.orbit-title h3 { margin: 0; font-family: var(--display); font-weight: 300; font-size: clamp(30px, 2.6vw, 40px); letter-spacing: -0.03em; line-height: 1; color: var(--ink); }
+.orbit-tagline { color: var(--ink); font-size: 16.5px; line-height: 1.45; }
+.orbit-summary { font-size: 15px; line-height: 1.55; }
+.orbit-stack { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 2px 0 0; list-style: none; }
+.orbit-stack li { padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px; font-size: 10.5px; color: var(--silver); }
+.orbit-card .exp-links { margin-top: 4px; gap: 4px 22px; }
+/* Short screens (a phone on its side): a compact panel without the cover. */
+@media (max-height: 520px) {
+  .orbit-panel { top: 50%; max-height: calc(100svh - 84px); padding: 16px 18px 12px; }
+  .orbit-cover, .orbit-summary { display: none; }
+  .orbit-on .orbit-head { padding-top: 64px; }
+  .orbit-on .orbit-head .lead { display: none; }
+  .orbit-stage.is-focus .orbit-head { opacity: 0; pointer-events: none; }
+}
+@media (max-width: 760px), (max-aspect-ratio: 17/20) {
+  .orbit-panel { left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; max-height: 54svh; padding: 18px 18px 12px; transform: translateY(24px); }
+  .orbit-panel.open { transform: none; }
+  .orbit-cover { display: none; }
+  .orbit-stage.is-focus .orbit-head { opacity: 0; pointer-events: none; }
+  .orbit-on .orbit-head .lead { display: none; }
+}
+
 /* 05 Contact: the horizon */
 .contact { position: relative; min-height: 100svh; display: grid; grid-template-rows: 1fr auto; padding: clamp(110px, 16svh, 170px) var(--m) 22px; text-align: center; }
-.contact-main { display: grid; gap: 22px; justify-items: center; align-content: start; }
-.contact .lead { max-width: 32ch; }
+.contact-main { display: grid; gap: 22px; justify-items: center; align-content: start;
+  /* The corona is brightest here at the end of the eclipse: a dark glow keeps the words readable. */
+  text-shadow: 0 0 28px rgba(8, 7, 17, 0.95), 0 0 12px rgba(8, 7, 17, 0.9), 0 0 3px rgba(8, 7, 17, 0.85); }
+.contact-main .btn { text-shadow: none; }
+.contact .lead { max-width: 32ch; color: var(--ink); }
 .mail { font-family: var(--display); font-weight: 300; font-size: clamp(20px, 4.4vw, 62px); letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); position: relative; padding-bottom: 0.14em; }
 .mail::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--line-strong); transform-origin: left; transition: transform 0.6s var(--ease), background-color 0.3s; }
-.mail:hover::after { background: var(--blue); transform: scaleX(1.03); }
+.mail:hover::after { background: var(--soft); transform: scaleX(1.03); }
 .contact-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 34px; }
-.contact::after { content: ''; position: absolute; inset: auto 0 0 0; height: 150px; background: linear-gradient(to top, rgba(3, 5, 10, 0.92), rgba(3, 5, 10, 0)); pointer-events: none; }
+.contact::after { content: ''; position: absolute; inset: auto 0 0 0; height: 150px; background: linear-gradient(to top, rgba(8, 7, 17, 0.92), rgba(8, 7, 17, 0)); pointer-events: none; }
 .contact-foot { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 32px; text-align: center; }
 .contact-foot p { color: var(--silver); max-width: 60ch; }
 .contact-foot a { color: var(--ink); padding: 12px 0; display: inline-block; }
@@ -278,7 +391,7 @@ a { color: inherit; text-decoration: none; }
 .pbody { display: grid; gap: 14px var(--m); padding: var(--gap) var(--m) 0; }
 .pbody h2 { font-family: var(--display); font-weight: 300; font-size: clamp(26px, 2.8vw, 40px); letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); margin-top: clamp(32px, 5vw, 56px); }
 .pbody h2:first-child { margin-top: 0; }
-.pbody p, .pbody li { max-width: 62ch; text-shadow: 0 0 18px rgba(3, 5, 10, 0.95), 0 0 3px rgba(3, 5, 10, 0.8); }
+.pbody p, .pbody li { max-width: 62ch; text-shadow: 0 0 18px rgba(8, 7, 17, 0.95), 0 0 3px rgba(8, 7, 17, 0.8); }
 @media (min-width: 900px) {
   .pbody { grid-template-columns: repeat(12, minmax(0, 1fr)); }
   .pbody > h2 { grid-column: 1 / 5; margin-top: clamp(40px, 6vw, 88px); }
@@ -288,7 +401,7 @@ a { color: inherit; text-decoration: none; }
 }
 .gallery { display: grid; gap: var(--m); padding: var(--gap) var(--m); }
 .gallery h2 { grid-column: 1 / -1; }
-.gallery figure { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #0a0e17; }
+.gallery figure { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #111020; }
 .gallery img { width: 100%; }
 .gallery.portrait { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .gallery.portrait figure { border-radius: 22px; }
@@ -315,10 +428,10 @@ a { color: inherit; text-decoration: none; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .js [data-r], .js .c-node { opacity: 1; transform: none; transition: none; }
-  .js .c-node { transform: translateY(-17px); }
-  .js .hero h1 span, .js .hero .rise, .star, .orbit i, .scroll-cue i::after, .status i::after { animation: none !important; }
-  .c-map polyline { stroke-dashoffset: 0; transition: none; }
+  .js [data-r] { opacity: 1; transform: none; transition: none; }
+  .js .c-node { opacity: 1; transition: none; }
+  .c-map line { stroke-dashoffset: 0; transition: none; }
+  .js .hero h1 span, .js .hero .rise, .star, .c-field i, .orbit i, .scroll-cue i::after, .status i::after { animation: none !important; }
   .exp-shot, .exp:nth-of-type(even) .exp-shot { transform: none; transition: none; }
   .btn, .link::before, .next-name { transition: none; }
 }
