@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+import { t } from '../i18n/ui';
+---
+<Base lang="es" title={t('es', '404.title')}>
+  <main id="main" class="page-head" style="min-height:100svh;align-content:center">
+    <h1 class="head">{t('es', '404.title')} · {t('en', '404.title')}</h1>
+    <p>{t('es', '404.text')}<br /><span lang="en">{t('en', '404.text')}</span></p>
+    <p style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn" href="/es/">{t('es', '404.home')}</a><a class="btn quiet" href="/en/" lang="en">{t('en', '404.home')}</a></p>
+  </main>
+</Base>

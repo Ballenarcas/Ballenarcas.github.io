@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ballenarcas.github.io/sitemap-index.xml

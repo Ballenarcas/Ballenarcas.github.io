@@ -1,0 +1,41 @@
+---
+title: "Votify"
+tagline: "Voting for events, from the vote to the ranking."
+summary: "A voting web app for events and hackathons, with public voting, a jury that scores by criteria and live results."
+role: "Full-stack .NET development"
+context: "Team project"
+year: 2026
+stack: ["Blazor WebAssembly", "C#", "ASP.NET", "Entity Framework", "Tailwind CSS", "Supabase"]
+repo: "https://github.com/Ballenarcas/Votify-DigitalForge-11.08"
+ground: "#4C1D95"
+ink: "#FFFFFF"
+cover: "../../../assets/projects/votify/v4.jpg"
+coverAlt: "Votify multi-criteria ranking with the winning project and its score"
+gallery:
+  - { src: "../../../assets/projects/votify/v1.jpg", alt: "Votify event list" }
+  - { src: "../../../assets/projects/votify/v2.jpg", alt: "Votings of one event: finished, paused and active" }
+  - { src: "../../../assets/projects/votify/v3.jpg", alt: "Participating projects with the vote registered notice" }
+  - { src: "../../../assets/projects/votify/v5.jpg", alt: "Public ranking with the number of votes for each project" }
+loop: "/videos/votify-loop.mp4"
+video: "/videos/votify.mp4"
+videoPoster: "../../../assets/projects/votify/poster.jpg"
+videoOrientation: "landscape"
+videoNote: "Recorded with sample data."
+order: 3
+---
+
+## The problem
+
+An event full of projects has to decide who wins, and it is rarely one kind of person voting. The public votes for a favourite, the jury scores by criteria with different weights, and the organisers need to open, pause and close each voting without losing control.
+
+## The solution
+
+Votify organises everything around the event. Each event holds votings, and each voting has its projects, its teams and its type: standard, by criteria for the jury, or by criteria open to the public. The organiser manages roles, opens and pauses votings and reads the ranking, which shows the podium and the breakdown by criterion with its weight.
+
+## Technical decisions
+
+The code is split into layers: domain, application, infrastructure, API and the Blazor client. Each layer only knows the one inside it.
+
+The design patterns solve concrete problems. Strategy: each voting type computes its results in its own class, so adding a type touches none of the others. State: an active, paused or finished voting accepts different actions. Observer: when a voting changes, notifications, scoring and analytics react without the voting service knowing them. Facade: controllers talk to one entry point per domain.
+
+The AI summary of comments has a fallback: if the provider fails, the site keeps working with a summary computed without AI.

@@ -1,0 +1,41 @@
+---
+title: "Votify"
+tagline: "Votaciones para eventos, del voto al ranking."
+summary: "Web de votaciones para eventos y hackathons, con votación del público, jurado por criterios y resultados en directo."
+role: "Desarrollo full stack en .NET"
+context: "Proyecto de equipo"
+year: 2026
+stack: ["Blazor WebAssembly", "C#", "ASP.NET", "Entity Framework", "Tailwind CSS", "Supabase"]
+repo: "https://github.com/Ballenarcas/Votify-DigitalForge-11.08"
+ground: "#4C1D95"
+ink: "#FFFFFF"
+cover: "../../../assets/projects/votify/v4.jpg"
+coverAlt: "Ranking multicriterio de Votify con el proyecto ganador y su puntuación"
+gallery:
+  - { src: "../../../assets/projects/votify/v1.jpg", alt: "Lista de eventos de Votify" }
+  - { src: "../../../assets/projects/votify/v2.jpg", alt: "Votaciones de un evento: finalizada, en pausa y activa" }
+  - { src: "../../../assets/projects/votify/v3.jpg", alt: "Proyectos participantes con el aviso de voto registrado" }
+  - { src: "../../../assets/projects/votify/v5.jpg", alt: "Ranking del público con el número de votos de cada proyecto" }
+loop: "/videos/votify-loop.mp4"
+video: "/videos/votify.mp4"
+videoPoster: "../../../assets/projects/votify/poster.jpg"
+videoOrientation: "landscape"
+videoNote: "Grabado con datos de ejemplo."
+order: 3
+---
+
+## El problema
+
+En un evento con proyectos hay que decidir quién gana, y casi nunca vota una sola clase de persona. El público vota a su favorito, el jurado puntúa por criterios con pesos distintos y la organización necesita abrir, pausar y cerrar cada votación sin perder el control.
+
+## La solución
+
+Votify organiza todo alrededor del evento. Dentro de cada evento hay votaciones, y cada votación tiene sus proyectos, sus equipos y su tipo: estándar, por criterios para el jurado o por criterios abierta al público. El organizador gestiona roles, abre y pausa las votaciones y consulta el ranking, que muestra el podio y el desglose por criterio con su peso.
+
+## Decisiones técnicas
+
+El código está separado en capas: dominio, aplicación, infraestructura, API y cliente Blazor. Cada capa solo conoce a la de dentro.
+
+Los patrones de diseño resuelven problemas concretos. Estrategia: cada tipo de votación calcula sus resultados con su propia clase, así que añadir un tipo no toca los demás. Estado: una votación activa, en pausa o finalizada acepta acciones distintas. Observador: cuando una votación cambia, las notificaciones, la puntuación y las analíticas reaccionan sin que el servicio de votaciones las conozca. Fachada: los controladores hablan con un punto de entrada por dominio.
+
+El resumen de comentarios con IA tiene una alternativa: si el proveedor falla, la web sigue funcionando con un resumen calculado sin IA.

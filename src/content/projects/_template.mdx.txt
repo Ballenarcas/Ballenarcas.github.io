@@ -1,0 +1,27 @@
+---
+title: ""
+tagline: ""
+summary: ""            # max. 220 characters
+role: ""               # optional
+context: ""            # optional: "Hackathon", "University"...
+year: 2026
+stack: []
+repo: "https://github.com/Ballenarcas/"
+ground: "#111111"      # the project's background colour
+ink: "#F5F5F3"         # text colour on that background (check the contrast)
+cover: "../../../assets/projects/<slug>/cover.jpg"
+coverAlt: ""
+gallery: []            # - { src: "../../../assets/projects/<slug>/one.jpg", alt: "" }
+# loop: "/videos/<slug>-loop.mp4"     # optional short silent clip
+# video: "/videos/<slug>.mp4"         # optional full film
+# videoPoster: "../../../assets/projects/<slug>/poster.jpg"
+# videoOrientation: "landscape"       # or "portrait"
+order: 10
+draft: false
+---
+
+## El problema
+
+## La solución
+
+## Decisiones técnicas

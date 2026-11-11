@@ -1,0 +1,40 @@
+---
+title: "Boost"
+tagline: "Train with purpose. Eat with clarity."
+summary: "A phone-first app that logs workouts and meals in one place, with an AI coach that is not allowed to invent the numbers."
+role: "Full-stack development"
+year: 2026
+stack: ["React 19", "TypeScript", "Vite", "FastAPI", "Python", "Supabase", "OpenAI-compatible AI API"]
+repo: "https://github.com/Ballenarcas/12.05-set_plate"
+ground: "#111111"
+ink: "#F5F5F3"
+cover: "../../../assets/projects/boost/train.jpg"
+coverAlt: "Boost live workout screen with sets, weight, reps and RPE"
+gallery:
+  - { src: "../../../assets/projects/boost/home.jpg", alt: "Boost home: calories, macros and the last seven days of activity" }
+  - { src: "../../../assets/projects/boost/tip.jpg", alt: "An accepted AI tip and today's adjusted workout" }
+  - { src: "../../../assets/projects/boost/stats.jpg", alt: "Statistics: volume progression and muscle group distribution" }
+  - { src: "../../../assets/projects/boost/nutrition.jpg", alt: "Today's meals with their calories" }
+loop: "/videos/boost-loop.mp4"
+video: "/videos/boost.mp4"
+videoPoster: "../../../assets/projects/boost/poster.jpg"
+videoOrientation: "portrait"
+videoNote: "Recorded with sample data. In the repository the project is still called SET&PLATE."
+order: 1
+---
+
+## The problem
+
+People who train and watch what they eat usually run two apps that never talk: one for the gym and one for food. The training plan does not know what you ate, and the calorie goal does not know how hard you trained.
+
+## The solution
+
+Boost puts both in one phone-first app. Home shows the calories and macros left today, today's workout and a tip you can accept or dismiss. In the gym you log sets, reps, weight and RPE live, with a rest timer. Routines are built from a catalogue of 1,324 exercises, and meals from a search that joins a local catalogue with Open Food Facts.
+
+## Technical decisions
+
+The AI never decides a number. Rules written in the backend choose each tip, its figures and the action behind the Accept button. The model can only reword the text, and what it writes passes a safety filter before it reaches the screen.
+
+The rules have fixed limits: they never diagnose, never propose a deficit above 500 kcal a day and never raise training load more than 10% a week. The calorie goal comes from the Mifflin-St Jeor formula.
+
+The code keeps API routes, business logic, persistence and frontend calls in separate layers. The Supabase tables are closed with RLS to everything except the backend.

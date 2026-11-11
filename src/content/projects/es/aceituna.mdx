@@ -1,0 +1,42 @@
+---
+title: "Aceituna"
+tagline: "Planifica, compra y cocina desde la misma lista."
+summary: "Lista de la compra inteligente hecha en una hackathon: catálogo, carrito con presupuesto, recetas y un asistente de cocina."
+role: "Desarrollo full stack"
+context: "Hackathon"
+year: 2026
+stack: ["React 19", "TypeScript", "Tailwind CSS", "Vite", "FastAPI", "Pydantic", "SQLite", "Búsqueda difusa"]
+repo: "https://github.com/Ballenarcas/MercadonaIT-Aceituna"
+ground: "#33431B"
+ink: "#F1F0E8"
+cover: "../../../assets/projects/aceituna/chat.jpg"
+coverAlt: "El asistente de cocina de Aceituna propone los ingredientes de una receta"
+gallery:
+  - { src: "../../../assets/projects/aceituna/lists.jpg", alt: "Listas de la compra por ocasión" }
+  - { src: "../../../assets/projects/aceituna/search.jpg", alt: "Buscador del catálogo con resultados para aceite" }
+  - { src: "../../../assets/projects/aceituna/cart.jpg", alt: "Carrito con el precio de cada producto y el total" }
+  - { src: "../../../assets/projects/aceituna/recipes.jpg", alt: "Receta abierta con sus ingredientes y cantidades" }
+loop: "/videos/aceituna-loop.mp4"
+video: "/videos/aceituna.mp4"
+videoPoster: "../../../assets/projects/aceituna/poster.jpg"
+videoOrientation: "landscape"
+order: 2
+---
+
+## El problema
+
+Preparar la compra reparte la información entre notas, memoria y aplicaciones que no conocen la tienda. Lo que quieres cocinar, lo que falta en casa y lo que te vas a gastar viven en sitios distintos.
+
+## La solución
+
+Aceituna concentra ese recorrido. Creas listas por ocasión, añades productos desde un catálogo con marcas habituales y los pasas al carrito, que calcula el total, lo pendiente y lo ya comprado. Cada receta guarda sus ingredientes y cantidades, y se añade a una lista escalando las raciones sin duplicar lo que ya tenías. El asistente de cocina detecta los ingredientes que le dices, busca recetas compatibles y calcula lo que falta.
+
+## Decisiones técnicas
+
+Todo funciona sin servicios externos: SQLite guarda los datos y la API carga una demo al arrancar, sin duplicarla si se reinicia. Así la app se enseña en una hackathon en un minuto. El asistente responde con la base de datos cuando no hay clave de IA.
+
+La interfaz aplica actualizaciones optimistas, de modo que marcar un producto es inmediato aunque la red tarde. Un único cliente HTTP tipado habla con la API, que valida cada petición con Pydantic y separa los dominios por routers. La búsqueda difusa tolera las diferencias entre lo que escribe una persona y el nombre del catálogo.
+
+## Siguientes pasos
+
+Usuarios y listas compartidas con autenticación, una lista de orígenes CORS por entorno, y sacar SQLite detrás de una interfaz para poder pasar a PostgreSQL.

@@ -1,0 +1,17 @@
+---
+// The site lives under /es/ and /en/. The root sends visitors to the default language.
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ángel Espada</title>
+    <meta http-equiv="refresh" content="0; url=/es/" />
+    <link rel="canonical" href="https://ballenarcas.github.io/es/" />
+    <meta name="robots" content="noindex" />
+    <script is:inline>
+      location.replace((navigator.language || '').toLowerCase().startsWith('es') ? '/es/' : '/en/');
+    </script>
+  </head>
+  <body><a href="/es/">Español</a> · <a href="/en/">English</a></body>
+</html>

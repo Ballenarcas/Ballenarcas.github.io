@@ -1,0 +1,42 @@
+---
+title: "Aceituna"
+tagline: "Plan, shop and cook from the same list."
+summary: "A smart shopping list built at a hackathon: catalogue, cart with budget, recipes and a cooking assistant."
+role: "Full-stack development"
+context: "Hackathon"
+year: 2026
+stack: ["React 19", "TypeScript", "Tailwind CSS", "Vite", "FastAPI", "Pydantic", "SQLite", "Fuzzy search"]
+repo: "https://github.com/Ballenarcas/MercadonaIT-Aceituna"
+ground: "#33431B"
+ink: "#F1F0E8"
+cover: "../../../assets/projects/aceituna/chat.jpg"
+coverAlt: "The Aceituna cooking assistant lists the ingredients of a recipe"
+gallery:
+  - { src: "../../../assets/projects/aceituna/lists.jpg", alt: "Shopping lists by occasion" }
+  - { src: "../../../assets/projects/aceituna/search.jpg", alt: "Catalogue search with results for olive oil" }
+  - { src: "../../../assets/projects/aceituna/cart.jpg", alt: "Cart with the price of each product and the total" }
+  - { src: "../../../assets/projects/aceituna/recipes.jpg", alt: "An open recipe with its ingredients and quantities" }
+loop: "/videos/aceituna-loop.mp4"
+video: "/videos/aceituna.mp4"
+videoPoster: "../../../assets/projects/aceituna/poster.jpg"
+videoOrientation: "landscape"
+order: 2
+---
+
+## The problem
+
+Getting the shopping ready scatters information across notes, memory and apps that do not know the shop. What you want to cook, what is missing at home and what you are about to spend live in different places.
+
+## The solution
+
+Aceituna keeps that whole path in one place. You create lists by occasion, add products from a catalogue of familiar brands and move them to the cart, which works out the total, what is pending and what is already bought. Each recipe keeps its ingredients and quantities, and is added to a list by scaling the servings without duplicating what you already had. The cooking assistant spots the ingredients you mention, finds matching recipes and works out what is missing.
+
+## Technical decisions
+
+Everything runs without external services: SQLite stores the data and the API loads a demo on start-up, without duplicating it on restart. That makes the app demo-ready in a minute at a hackathon. The assistant answers from the database when there is no AI key.
+
+The interface applies optimistic updates, so ticking a product is instant even on a slow network. A single typed HTTP client talks to the API, which validates each request with Pydantic and splits its domains into routers. Fuzzy search tolerates the gap between what a person types and the catalogue name.
+
+## Next steps
+
+Users and shared lists with authentication, a per-environment CORS origin list, and moving SQLite behind an interface so PostgreSQL can replace it.

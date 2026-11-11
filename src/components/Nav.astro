@@ -1,0 +1,15 @@
+---
+import { author, otherLangPath, t, type Lang } from '../i18n/ui';
+interface Props { lang: Lang; home?: boolean }
+const { lang, home = false } = Astro.props;
+const base = `/${lang}/`;
+---
+<nav class="nav" aria-label={lang === 'es' ? 'Principal' : 'Main'}>
+  {!home && <a href={base}><strong>{author.name}</strong></a>}
+  <ul>
+    <li><a href={`${base}#work`}>{t(lang, 'nav.work')}</a></li>
+    <li><a href={`${base}about/`}>{t(lang, 'nav.about')}</a></li>
+    <li><a href="#contact">{t(lang, 'nav.contact')}</a></li>
+    <li><a href={otherLangPath(Astro.url.pathname, lang)} hreflang={lang === 'es' ? 'en' : 'es'} lang={lang === 'es' ? 'en' : 'es'}>{t(lang, 'nav.switch')}</a></li>
+  </ul>
+</nav>

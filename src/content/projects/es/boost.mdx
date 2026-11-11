@@ -1,0 +1,40 @@
+---
+title: "Boost"
+tagline: "Entrena con propósito. Come con claridad."
+summary: "App móvil para registrar entrenos y comidas en un solo sitio, con un entrenador de IA que no puede inventarse los números."
+role: "Desarrollo full stack"
+year: 2026
+stack: ["React 19", "TypeScript", "Vite", "FastAPI", "Python", "Supabase", "API de IA compatible con OpenAI"]
+repo: "https://github.com/Ballenarcas/12.05-set_plate"
+ground: "#111111"
+ink: "#F5F5F3"
+cover: "../../../assets/projects/boost/train.jpg"
+coverAlt: "Pantalla de entreno en vivo de Boost con series, peso, repeticiones y RPE"
+gallery:
+  - { src: "../../../assets/projects/boost/home.jpg", alt: "Inicio de Boost: calorías, macros y actividad de los últimos siete días" }
+  - { src: "../../../assets/projects/boost/tip.jpg", alt: "Consejo de IA aceptado y entreno del día ajustado" }
+  - { src: "../../../assets/projects/boost/stats.jpg", alt: "Estadísticas: progresión de volumen y reparto por grupo muscular" }
+  - { src: "../../../assets/projects/boost/nutrition.jpg", alt: "Comidas del día con sus calorías" }
+loop: "/videos/boost-loop.mp4"
+video: "/videos/boost.mp4"
+videoPoster: "../../../assets/projects/boost/poster.jpg"
+videoOrientation: "portrait"
+videoNote: "Grabado con datos de ejemplo. En el repositorio el proyecto aún se llama SET&PLATE."
+order: 1
+---
+
+## El problema
+
+Quien entrena y cuida lo que come suele usar dos apps que no se hablan: una para el gimnasio y otra para la comida. El plan de entreno no sabe qué has comido y el objetivo de calorías no sabe cuánto has entrenado.
+
+## La solución
+
+Boost junta las dos cosas en una app pensada para el móvil. El inicio enseña las calorías y los macros que quedan, el entreno de hoy y un consejo que puedes aceptar o descartar. En el gimnasio registras series, repeticiones, peso y RPE en vivo, con temporizador de descanso. Las rutinas se montan a partir de un catálogo de 1.324 ejercicios, y las comidas con un buscador que une un catálogo local y Open Food Facts.
+
+## Decisiones técnicas
+
+La IA no decide ningún número. Unas reglas escritas en el backend eligen cada consejo, sus cifras y la acción del botón Aceptar. El modelo solo puede reescribir el texto, y lo que escribe pasa un filtro de seguridad antes de llegar a la pantalla.
+
+Las reglas tienen límites fijos: nunca diagnostican, nunca proponen un déficit mayor de 500 kcal al día y nunca suben la carga de entreno más de un 10 % por semana. El objetivo de calorías sale de la fórmula de Mifflin-St Jeor.
+
+El código separa las rutas de la API, la lógica de negocio, la base de datos y las llamadas del frontend. Las tablas de Supabase están cerradas con RLS a todo lo que no sea el backend.

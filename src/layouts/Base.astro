@@ -1,0 +1,57 @@
+---
+import '@fontsource-variable/inter/opsz.css';
+import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
+import { author, otherLangPath, t, type Lang } from '../i18n/ui';
+
+interface Props {
+  lang: Lang;
+  title?: string;
+  description?: string;
+  image?: string;
+  themeColor?: string;
+  jsonLd?: Record<string, unknown>;
+}
+const { lang, title, description = t(lang, 'site.description'), image = '/og.png', themeColor = '#111111', jsonLd } = Astro.props;
+const fullTitle = title ? `${title} · ${author.name}` : t(lang, 'site.title');
+const path = Astro.url.pathname;
+const canonical = new URL(path, Astro.site);
+const other: Lang = lang === 'es' ? 'en' : 'es';
+const alt = new URL(otherLangPath(path, lang), Astro.site);
+const es = lang === 'es' ? canonical : alt;
+const en = lang === 'en' ? canonical : alt;
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content={themeColor} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="es" href={es} />
+    <link rel="alternate" hreflang="en" href={en} />
+    <link rel="alternate" hreflang="x-default" href={es} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL(image, Astro.site)} />
+    <meta property="og:locale" content={lang === 'es' ? 'es_ES' : 'en_US'} />
+    <meta property="og:locale:alternate" content={other === 'es' ? 'es_ES' : 'en_US'} />
+    <meta name="twitter:card" content="summary_large_image" />
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+    <script is:inline>document.documentElement.classList.add('js');</script>
+    <ClientRouter />
+  </head>
+  <body>
+    <a class="skip" href="#main">{t(lang, 'nav.skip')}</a>
+    <slot />
+    <script>
+      import '../scripts/motion.ts';
+    </script>
+  </body>
+</html>

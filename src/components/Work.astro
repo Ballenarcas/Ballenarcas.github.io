@@ -1,0 +1,40 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { Image } from 'astro:assets';
+import { t, type Lang } from '../i18n/ui';
+interface Props { lang: Lang; projects: CollectionEntry<'projects'>[] }
+const { lang, projects } = Astro.props;
+const slug = (p: CollectionEntry<'projects'>) => p.id.split('/')[1];
+---
+<section class="work" id="work" data-work aria-label={t(lang, 'nav.work')}>
+  <div class="work-track">
+    {projects.map((p, n) => {
+      const d = p.data;
+      const href = `/${lang}/projects/${slug(p)}/`;
+      const portrait = d.videoOrientation === 'portrait';
+      const shots = portrait
+        ? [d.gallery[0], { src: d.cover, alt: d.coverAlt }, d.gallery[2]].filter(Boolean)
+        : [{ src: d.cover, alt: d.coverAlt }];
+      return (
+        <article class={`panel field p${(n % 3) + 1}`} style={`--g:${d.ground};--i:${d.ink}`} data-panel>
+          <h2 class="mon" data-r><a href={href} transition:name={`title-${slug(p)}`}>{d.title}</a></h2>
+          <div class="panel-text">
+            <p class="statement" data-r style="--d:1">{d.tagline}</p>
+            <p data-r style="--d:1">{d.summary}</p>
+            <p class="panel-meta" data-r style="--d:2">{[d.context, d.year].filter(Boolean).join(' · ')}<br />{d.stack.join(', ')}</p>
+            <div class="panel-actions" data-r style="--d:3">
+              <a class="btn" href={href}>{t(lang, 'work.open')}</a>
+              <a class="small" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>
+            </div>
+          </div>
+          <div class="panel-media" data-r style="--d:2">
+            {shots.map((s) => (
+              <Image src={s.src} alt={s.alt} widths={portrait ? [360, 560, 780] : [640, 1024, 1680]}
+                sizes={portrait ? '(min-width: 1024px) 16vw, 60vw' : '(min-width: 1024px) 56vw, 100vw'} loading="lazy" />
+            ))}
+          </div>
+        </article>
+      );
+    })}
+  </div>
+</section>
