@@ -335,13 +335,19 @@ export class PlanetSystem {
     return { at: b.world, radius: b.size * this.group.scale.x };
   }
 
-  /** The shown planets in their order around the system, with their world positions. */
-  shownWorld() { return this.bodies.filter((b) => b.shown && b.live.presence > 0.5).map((b) => b.world); }
+  /** The shown planets in their order, with their world positions. Depends on the filter only, so the
+   *  framing changes in one step that the camera then blends. */
+  shownWorld() { return this.bodies.filter((b) => b.shown).map((b) => b.world); }
 
   /** Radius of the outermost shown orbit, in Moon radii. */
   get reach() {
     const n = Math.max(1, this.bodies.filter((b) => b.shown).length);
-    return SLOT0 + SLOT_STEP * (n - 1) + 0.6;
+    return SLOT0 + this.step * (n - 1) + 0.6;
+  }
+
+  /** Space between orbits: it narrows as projects are added, so a long list still fits the frame. */
+  private get step() {
+    return Math.min(SLOT_STEP, Math.max(0.72, 3.9 / Math.max(1, this.bodies.length)));
   }
 
   private make(def: PlanetDef, count: number): Body {
@@ -435,7 +441,7 @@ export class PlanetSystem {
   private layout(animate: boolean) {
     let slot = 0;
     for (const b of this.bodies) {
-      const a = SLOT0 + SLOT_STEP * (b.shown ? slot++ : slot + 0.6);
+      const a = SLOT0 + this.step * (b.shown ? slot++ : slot + 0.6);
       b.orbit.a = a;
       if (animate) {
         gsap.to(b.live, { a, duration: 1.4, ease: 'power2.inOut', overwrite: 'auto' });
@@ -476,7 +482,9 @@ export class PlanetSystem {
       const a = b.live.a;
       // Kepler-like: outer planets go round more slowly. The scroll also carries them along.
       k.angle += (0.3 * Math.pow(SLOT0 / a, 1.5) * k.speed) * o.dt + scrolled * 1.6 * Math.pow(SLOT0 / a, 0.5);
-      const r = (a * (1 - k.e * k.e)) / (1 + k.e * Math.cos(k.angle));
+      // Crowded systems get rounder orbits, so neighbours do not cross.
+      const e = k.e * (this.step / SLOT_STEP);
+      const r = (a * (1 - e * e)) / (1 + e * Math.cos(k.angle));
       this.tmp.set(Math.cos(k.angle) * r, 0, Math.sin(k.angle) * r);
       // Tilt the orbit's plane, then turn it about the vertical.
       const y = -this.tmp.z * Math.sin(k.incl);

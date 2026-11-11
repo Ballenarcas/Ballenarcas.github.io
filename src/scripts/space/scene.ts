@@ -492,7 +492,7 @@ export class MoonScene implements SpaceRenderer {
     r.target.copy(this.moonAt).addScaledVector(this.lean, 0.5);
     r.yaw = 0.35 + s * Math.PI * 1.5;
     r.pitch = 0.42 + (0.3 - 0.42) * s - 0.26 * Math.sin(Math.PI * s);
-    const fit = Math.min(1.5, Math.max(1, (reach * 1.02) / this.aspect));
+    const fit = Math.min(2.4, Math.max(1, (reach * 1.02) / this.aspect));
     r.frame = fit * (1 - 0.3 * Math.min(1, spot));
     r.fov = 30;
     r.shiftX = 0;
@@ -510,7 +510,8 @@ export class MoonScene implements SpaceRenderer {
     const out = this.tmpV.copy(p.at).sub(this.moonAt);
     this.focusYaw = nearAngle(Math.atan2(out.x, out.z) + 0.5, this.focusYaw);
     r.yaw = this.focusYaw;
-    r.pitch = 0.16;
+    // From a little above the plane of the orbits, so the other planets pass below the line of sight.
+    r.pitch = 0.4;
     r.frame = p.radius / (tall ? 0.28 : 0.36);
     r.fov = 34;
     r.shiftX = tall ? 0 : -0.36;
@@ -540,7 +541,11 @@ export class MoonScene implements SpaceRenderer {
   get busy() { return this.weight > 0.001 || !this.director.settled; }
 
   setPlanets(defs: PlanetDef[]) { this.planets.set(defs); }
-  showPlanets(ids: string[]) { this.planets.show(ids); }
+  showPlanets(ids: string[]) {
+    this.planets.show(ids);
+    // The framing of the exploration changes with the planets on show: blend into it, never cut.
+    if (this.director.source.kind === 'explore') this.director.follow({ kind: 'explore' }, 1.4);
+  }
   hover(id: string | null) { this.planets.hover(id); }
 
   /** Fly to a planet, or back to the exploration with null. */
