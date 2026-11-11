@@ -59,9 +59,10 @@ const vec3 SOFT = vec3(0.663, 0.541, 0.847);   // #A98AD8
 const vec3 SILVER = vec3(0.867, 0.835, 0.914); // #DDD5E9
 vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }
 vec3 violet(float t) {
-  vec3 c = mix(lin(DEEP), lin(ROYAL), smoothstep(0.0, 0.42, t));
-  c = mix(c, lin(SOFT), smoothstep(0.38, 0.78, t));
-  return mix(c, lin(SILVER), smoothstep(0.74, 1.0, t));
+  // Maria in deep purple, plains in royal violet, highlands in lavender; silver is kept for the brightest ground.
+  vec3 c = mix(lin(DEEP), lin(ROYAL) * vec3(0.95, 0.85, 1.12), smoothstep(0.0, 0.42, t));
+  c = mix(c, lin(SOFT), smoothstep(0.34, 0.8, t));
+  return mix(c, mix(lin(SOFT), lin(SILVER), 0.7), smoothstep(0.82, 1.0, t));
 }
 
 float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
@@ -117,32 +118,52 @@ void main() {
   vec3 nW = normalize(uRot * n);
   vec3 pW = normalize(uRot * p);
 
-  // The sun of the eclipse: a soft terminator over the smooth sphere, then the light on the relief.
-  float facing = dot(pW, uLight);
-  float day = smoothstep(-0.05, 0.2, facing);
-  float lit = max(dot(nW, uLight), 0.0);
-  lit = mix(lit, sqrt(lit), 0.55) * day;
+  // Crater shape read from the map itself: rims stand above their surroundings, floors sit below.
+  float h = lum(albedo);
+  float curve = h - 0.25 * (hL + hR + hD + hU);
+  float rimLight = smoothstep(0.004, 0.05, curve);
+  float cavity = smoothstep(0.004, 0.05, -curve);
 
-  // Craters keep their volume even under a frontal sun: shade the relief against a fixed oblique light.
+  // The sun of the eclipse. Its shadow has a wide soft edge, like a shadow drawn over the Moon.
+  float facing = dot(pW, uLight);
+  float day = smoothstep(-0.1, 0.3, facing);
+  float lit = max(dot(nW, uLight), 0.0);
+  lit = mix(lit, sqrt(lit), 0.18) * day;
+
+  // A fixed key light from the upper left models the relief at every phase, the full Moon included.
   vec3 R = normalize(vec3(-0.62, 0.5, 0.6));
   // Close up the photograph is magnified: soften the relief so it does not turn into noise.
-  float relief = clamp(1.0 + (dot(nW, R) - dot(pW, R)) * 1.7 * (1.0 - 0.65 * uZoom), 0.5, 1.45);
+  float relief = clamp(1.0 + (dot(nW, R) - dot(pW, R)) * 2.5 * (1.0 - 0.65 * uZoom), 0.38, 1.6);
+  float key = 0.74 + 0.42 * dot(pW, R);
 
   // Violet as material: the brightness of the map runs through the palette.
-  float h = lum(albedo);
-  vec3 surface = violet(0.16 + 0.78 * smoothstep(0.01, 0.5, h));
+  vec3 surface = violet(0.14 + 0.8 * smoothstep(0.01, 0.5, h));
+  surface *= 1.0 - 0.4 * cavity;
+  surface = mix(surface, lin(SILVER), 0.5 * rimLight);
 
-  vec3 col = surface * relief * lit * uExposure * 1.05;
-  // Earthshine on the night side, in deep violet, so the dark disc keeps a trace of its craters.
-  col += surface * relief * uAmbient * (1.0 - day);
+  vec3 col = surface * relief * key * lit * uExposure * 1.5;
+  // A lavender sheen where the ground faces the key light.
+  float sheen = pow(max(dot(nW, normalize(R + vec3(0.0, 0.0, 1.0))), 0.0), 9.0);
+  col += lin(SOFT) * sheen * 0.16 * lit * uExposure;
 
-  // Fresnel rim: strongest on the edge that faces the sun, and stronger as the eclipse deepens.
-  float fres = pow(1.0 - clamp(pW.z, 0.0, 1.0), 5.0);
+  // Inside the shadow the Moon is still there: its craters and relief stay readable in deep violet.
+  float shade = 1.0 - day;
+  float wrap = smoothstep(-0.75, 0.2, facing);
+  vec3 umbra = surface * vec3(0.72, 0.5, 1.0) * relief * (0.5 + 0.5 * key);
+  col += umbra * uAmbient * shade * (0.35 + 1.1 * wrap * wrap);
+
+  // Fresnel rim: the light of the corona catching the edge that faces the sun.
+  float fres = pow(1.0 - clamp(pW.z, 0.0, 1.0), 4.0);
   vec2 sunXY = uLight.xy;
   float side = length(sunXY) > 0.05 ? clamp(dot(normalize(pW.xy + 1e-5), normalize(sunXY)), 0.0, 1.0) : 0.5;
-  col += lin(SOFT) * fres * uRim * (0.04 + 0.96 * side * side);
+  col += lin(SOFT) * fres * uRim * (0.02 + 0.98 * side * side * side) * (0.5 + 0.5 * relief);
 
-  col = 1.0 - exp(-col * 1.3);
+  // Tone curve on brightness only, so the violet keeps its colour in the highlights.
+  float L = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  col *= (1.0 - exp(-L * 1.7)) / max(L, 1e-4);
+  // Grade: a little more colour, and the darkest tones fall towards deep purple instead of grey.
+  float G = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  col = max(mix(vec3(G), col, 1.22), 0.0);
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }`;
@@ -180,7 +201,8 @@ const GLOW_VERT = /* glsl */ `
 varying vec2 vUv;
 void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
-// The corona: a violet light around the silhouette, pulled towards the sun and broken into soft rays.
+// The corona: violet light spilling from behind the Moon. No ring is drawn: there is a soft glow that
+// hugs the edge and streamers of uneven length, both pulled towards the hidden sun.
 const GLOW_FRAG = /* glsl */ `
 uniform float uStrength;
 uniform float uEclipse;
@@ -188,21 +210,30 @@ uniform vec2 uSun;
 uniform float uTime;
 varying vec2 vUv;
 const float SPAN = 2.6; // half the plane, in Moon radii
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
 void main() {
   vec2 q = (vUv - 0.5) * 2.0 * SPAN;
   float d = length(q);
   if (d < 0.985) discard;
-  float a = atan(q.y, q.x);
+  vec2 dir = q / d;
   float x = d - 1.0;
-  float width = mix(0.22, 0.55, uEclipse);
-  float body = exp(-x / width);
-  float rays = 0.72 + 0.14 * sin(a * 7.0 + 1.3 + uTime * 0.05) + 0.09 * sin(a * 13.0 - uTime * 0.08) + 0.05 * sin(a * 29.0 + 2.0);
-  float toward = length(uSun) > 0.05 ? max(dot(normalize(q), normalize(uSun)), 0.0) : 0.5;
-  float bias = mix(1.0, 0.1 + 1.6 * pow(toward, 1.6), uEclipse);
-  float ring = exp(-pow(x / 0.012, 2.0)) * uEclipse * (0.04 + 0.96 * toward * toward);
-  float fade = smoothstep(SPAN, SPAN * 0.7, d);
-  float alpha = (body * rays * bias + ring * 0.9) * fade * uStrength;
-  vec3 col = mix(vec3(0.42, 0.22, 0.72), vec3(0.74, 0.6, 1.0), clamp(body * body + ring, 0.0, 1.0));
+  float toward = length(uSun) > 0.05 ? max(dot(dir, normalize(uSun)), 0.0) : 0.5;
+  // Streamers: noise sampled around the disc (on the direction, so there is no seam) and stretched outwards.
+  float t = uTime * 0.02;
+  float n1 = noise(dir * 3.2 + vec2(t, -t) + x * 0.35);
+  float n2 = noise(dir * 8.5 - vec2(t * 1.6, t) + x * 0.9);
+  float streams = 0.35 + 0.95 * n1 * n1 + 0.4 * n2;
+  float reach = mix(0.22, 0.4 + 0.75 * n1, uEclipse);
+  float halo = exp(-x / reach) * streams;
+  float hug = exp(-x / 0.16);
+  float bias = mix(1.0, 0.14 + 1.7 * pow(toward, 1.6), uEclipse);
+  float fade = smoothstep(SPAN, SPAN * 0.62, d);
+  float alpha = (halo * 0.95 + hug * 0.3) * bias * fade * uStrength;
+  vec3 col = mix(vec3(0.36, 0.17, 0.66), vec3(0.74, 0.6, 1.0), clamp(halo * halo * 0.8 + hug * 0.35, 0.0, 1.0));
   gl_FragColor = vec4(col, alpha);
 }`;
 
@@ -351,8 +382,8 @@ export class MoonScene implements SpaceRenderer {
     (u.uLight.value as Vector3).copy(this.light);
     const e = f.eclipse;
     u.uExposure.value = intro;
-    u.uAmbient.value = 0.022 * (1 - 0.55 * e) * intro;
-    u.uRim.value = (0.12 + 0.9 * e * e) * intro;
+    u.uAmbient.value = (0.03 + 0.035 * e) * intro;
+    u.uRim.value = (0.05 + 0.6 * e * e) * intro;
     // Fine grain only matters once the Moon is large on screen.
     const zoom = Math.min(1, Math.max(0, (f.r - 0.45) / 0.9));
     u.uZoom.value = zoom;
@@ -361,7 +392,7 @@ export class MoonScene implements SpaceRenderer {
     const g = this.glow.material.uniforms;
     this.glow.position.set(x, y, -1);
     this.glow.scale.setScalar(radius * 2 * 2.6);
-    g.uStrength.value = (0.12 + 0.85 * Math.pow(e, 1.4)) * intro;
+    g.uStrength.value = (0.22 + 1.35 * Math.pow(e, 2.2)) * intro;
     g.uEclipse.value = e;
     (g.uSun.value as Vector2).set(this.light.x, this.light.y);
     g.uTime.value = f.time;
