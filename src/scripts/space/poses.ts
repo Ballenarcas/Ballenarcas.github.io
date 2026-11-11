@@ -21,7 +21,7 @@ const wide: Record<PoseKey, Pose> = {
   // 03 Half in shadow, it sinks to the bottom-right corner: the constellations take the sky.
   skills: { x: 1.06, y: -1.4, r: 0.32, tilt: 0.34, spin: 0.85 },
   // 04 Low orbit: a large Moon below the expeditions, only its edge still lit.
-  projects: { x: 0, y: -1.36, r: 1.1, tilt: 0.62, spin: 1.35 },
+  projects: { x: -0.85, y: -1.2, r: 1.15, tilt: 0.62, spin: 1.35 },
   // 05 Total eclipse, centred behind the last words, with its violet corona.
   contact: { x: 0, y: -0.06, r: 0.3, tilt: 0.3, spin: 1.6 },
   // Inner pages: small and high in the corner, away from the reading column.
