@@ -23,10 +23,10 @@ const wide: Record<PoseKey, Pose> = {
   hero: { x: 0, y: 0.26, r: 0.17, light: [-0.55, 0.35, 0.76], tilt: 0.1, spin: 0, exposure: 1.05, ambient: 0.012, glow: 0.5 },
   // 02 It grows and drifts right; the lit half faces the text.
   about: { x: 0.5, y: -0.04, r: 0.4, light: [-0.9, 0.22, 0.38], tilt: 0.16, spin: 0.35, exposure: 1.1, ambient: 0.014, glow: 0.42 },
-  // 03 A large Moon low on the left; the constellations take the sky.
-  skills: { x: -0.74, y: -0.6, r: 0.68, light: [0.72, 0.62, 0.3], tilt: 0.34, spin: 0.85, exposure: 1.0, ambient: 0.016, glow: 0.3 },
-  // 04 Low orbit over the night side: a thin lit limb, the rest in earthshine.
-  projects: { x: -0.26, y: -0.2, r: 1.08, light: [0.62, 0.5, -0.6], tilt: 0.62, spin: 1.35, exposure: 1.25, ambient: 0.04, glow: 0.16 },
+  // 03 A large Moon low on the right; the constellations take the rest of the sky.
+  skills: { x: 0.92, y: -0.66, r: 0.58, light: [-0.7, 0.62, 0.34], tilt: 0.34, spin: 0.85, exposure: 1.0, ambient: 0.016, glow: 0.3 },
+  // 04 Low orbit over the night side: only the limb is lit, the ground below is in earthshine.
+  projects: { x: 0, y: -1.36, r: 1.1, light: [0.2, 0.36, -0.91], tilt: 0.62, spin: 1.35, exposure: 1.15, ambient: 0.02, glow: 0.1 },
   // 05 Touchdown: the horizon at sunrise.
   contact: { x: 0, y: -6.86, r: 3.2, light: [0.18, 0.5, -0.42], tilt: 1.12, spin: 1.7, exposure: 1.35, ambient: 0.03, glow: 0 },
   // Inner pages.
@@ -39,8 +39,8 @@ const wide: Record<PoseKey, Pose> = {
 const tall: Record<PoseKey, Pose> = {
   hero: { ...wide.hero, x: 0, y: 0.34, r: 0.125 },
   about: { ...wide.about, x: 0.62, y: 0.66, r: 0.2, exposure: 0.85 },
-  skills: { ...wide.skills, x: -0.9, y: -0.86, r: 0.3, exposure: 0.7 },
-  projects: { ...wide.projects, x: -0.3, y: -0.1, r: 0.86, ambient: 0.03, exposure: 1.0 },
+  skills: { ...wide.skills, x: 0.95, y: -0.9, r: 0.3, exposure: 0.7 },
+  projects: { ...wide.projects, x: 0, y: -1.5, r: 1.1, ambient: 0.018 },
   contact: { ...wide.contact, x: 0, y: -3.72, r: 1.6 },
   detail: { ...wide.detail, x: 0.9, y: 0.7, r: 0.2, exposure: 0.6 },
   'detail-end': { ...wide['detail-end'], y: -3.9, r: 1.6 },

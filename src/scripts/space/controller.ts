@@ -93,7 +93,9 @@ export class SpaceController {
     const next = list[i + 1];
     if (!next) return here;
     const holdEnd = Math.max(list[i].top, next.top - this.height);
-    const t = clamp01((y - holdEnd) / Math.max(1, next.top - holdEnd));
+    // The handover is over a little before the next scene reaches the top, so its text arrives on a settled sky.
+    const end = Math.max(holdEnd + 1, next.top - this.height * 0.3);
+    const t = clamp01((y - holdEnd) / (end - holdEnd));
     return mixPose(here, poseFor(next.key, aspect), smooth(t));
   }
 

@@ -79,14 +79,15 @@ void main() {
   vec3 B = cross(p, T);
 
   // Sample the height one pixel footprint apart, so the relief keeps its strength at every zoom.
-  vec2 e = clamp(fwidth(vUv) * 0.75, uTexel * 1.25, uTexel * 10.0);
+  vec2 e = clamp(fwidth(vUv) * 0.75, uTexel * 2.0, uTexel * 10.0);
   float hL = lum(texture2D(uMap, vUv - vec2(e.x, 0.0)).rgb);
   float hR = lum(texture2D(uMap, vUv + vec2(e.x, 0.0)).rgb);
   float hD = lum(texture2D(uMap, vUv - vec2(0.0, e.y)).rgb);
   float hU = lum(texture2D(uMap, vUv + vec2(0.0, e.y)).rgb);
   float cosLat = max(sqrt(max(1.0 - p.y * p.y, 0.0)), 0.2);
   vec2 slope = vec2((hR - hL) / (2.0 * e.x) / (6.2832 * cosLat), (hU - hD) / (2.0 * e.y) / 3.1416);
-  vec3 n = p - uBump * (slope.x * T + slope.y * B);
+  // Up close the photograph runs out of detail: lean less on it and let the fine grain take over.
+  vec3 n = p - uBump * (1.0 - 0.5 * uDetail) * (slope.x * T + slope.y * B);
 
   vec3 albedo = texture2D(uMap, vUv).rgb;
   if (uDetail > 0.001) {

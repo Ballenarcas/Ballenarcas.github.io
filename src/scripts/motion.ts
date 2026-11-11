@@ -12,7 +12,7 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 let cleanups: Array<() => void> = [];
 let controller: SpaceController | null = null;
 
-/** Which version of the scene this device gets. `?flat` and `?low` force one, for testing. */
+/** Which version of the scene this device gets. `?flat`, `?low` and `?high` force one, for testing. */
 function tier(): 'high' | 'low' | 'flat' {
   const query = new URLSearchParams(location.search);
   if (query.has('flat')) return 'flat';
@@ -22,6 +22,7 @@ function tier(): 'high' | 'low' | 'flat' {
   if (!probe) return 'flat';
   probe.getExtension('WEBGL_lose_context')?.loseContext();
   const modest = matchMedia('(max-width: 820px)').matches || (nav.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4;
+  if (query.has('high')) return 'high';
   return query.has('low') || modest ? 'low' : 'high';
 }
 
