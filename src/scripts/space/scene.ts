@@ -140,7 +140,7 @@ void main() {
   float fres = pow(1.0 - clamp(pW.z, 0.0, 1.0), 5.0);
   vec2 sunXY = uLight.xy;
   float side = length(sunXY) > 0.05 ? clamp(dot(normalize(pW.xy + 1e-5), normalize(sunXY)), 0.0, 1.0) : 0.5;
-  col += lin(SOFT) * fres * uRim * (0.15 + 0.85 * side * side);
+  col += lin(SOFT) * fres * uRim * (0.04 + 0.96 * side * side);
 
   col = 1.0 - exp(-col * 1.3);
   gl_FragColor = vec4(col, 1.0);
@@ -198,8 +198,8 @@ void main() {
   float body = exp(-x / width);
   float rays = 0.72 + 0.14 * sin(a * 7.0 + 1.3 + uTime * 0.05) + 0.09 * sin(a * 13.0 - uTime * 0.08) + 0.05 * sin(a * 29.0 + 2.0);
   float toward = length(uSun) > 0.05 ? max(dot(normalize(q), normalize(uSun)), 0.0) : 0.5;
-  float bias = mix(1.0, 0.2 + 1.4 * pow(toward, 1.5), uEclipse);
-  float ring = exp(-pow(x / 0.012, 2.0)) * uEclipse * (0.12 + 0.88 * toward * toward);
+  float bias = mix(1.0, 0.1 + 1.6 * pow(toward, 1.6), uEclipse);
+  float ring = exp(-pow(x / 0.012, 2.0)) * uEclipse * (0.04 + 0.96 * toward * toward);
   float fade = smoothstep(SPAN, SPAN * 0.7, d);
   float alpha = (body * rays * bias + ring * 0.9) * fade * uStrength;
   vec3 col = mix(vec3(0.42, 0.22, 0.72), vec3(0.74, 0.6, 1.0), clamp(body * body + ring, 0.0, 1.0));

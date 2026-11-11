@@ -174,7 +174,8 @@ a { color: inherit; text-decoration: none; }
 .c-map { position: relative; aspect-ratio: 1; margin: 6px 0 0; }
 .c-field { position: absolute; inset: -6%; pointer-events: none; }
 .c-field i { position: absolute; width: var(--s); height: var(--s); border-radius: 50%; background: #efe8ff; opacity: var(--o); translate: -50% -50%;
-  animation: twinkle 7s ease-in-out infinite; animation-delay: calc(var(--d) * -1); }
+  animation: twinkle 7s ease-in-out infinite paused; animation-delay: calc(var(--d) * -1); }
+.sky.live .c-field i { animation-play-state: running; }
 .c-map > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .c-map line { stroke: rgba(201, 182, 236, 0.34); stroke-width: 0.3; stroke-linecap: round;
   stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.6s var(--ease), stroke 0.35s, stroke-width 0.35s;
@@ -368,7 +369,7 @@ a { color: inherit; text-decoration: none; }
   .js [data-r] { opacity: 1; transform: none; transition: none; }
   .js .c-node { opacity: 1; transition: none; }
   .c-map line { stroke-dashoffset: 0; transition: none; }
-  .js .hero h1 span, .js .hero .rise, .star, .orbit i, .scroll-cue i::after, .status i::after { animation: none !important; }
+  .js .hero h1 span, .js .hero .rise, .star, .c-field i, .orbit i, .scroll-cue i::after, .status i::after { animation: none !important; }
   .exp-shot, .exp:nth-of-type(even) .exp-shot { transform: none; transition: none; }
   .btn, .link::before, .next-name { transition: none; }
 }

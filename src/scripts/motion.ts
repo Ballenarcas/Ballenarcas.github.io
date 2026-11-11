@@ -123,6 +123,13 @@ function lean() {
 
 /** Constellations: lighting a star lights the lines that touch it (pointer, keyboard focus or tap). */
 function constellations() {
+  // The faint field stars only twinkle while the sky is on screen.
+  const sky = document.querySelector<HTMLElement>('.sky');
+  if (sky && !reduced()) {
+    const io = new IntersectionObserver(([e]) => sky.classList.toggle('live', e.isIntersecting));
+    io.observe(sky);
+    cleanups.push(() => io.disconnect());
+  }
   document.querySelectorAll<HTMLElement>('[data-constellation]').forEach((group) => {
     const lines = [...group.querySelectorAll<SVGLineElement>('line')];
     const nodes = [...group.querySelectorAll<HTMLElement>('.c-node')];

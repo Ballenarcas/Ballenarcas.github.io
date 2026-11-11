@@ -24,22 +24,22 @@ const wide: Record<PoseKey, Pose> = {
   projects: { x: 0, y: -1.36, r: 1.1, tilt: 0.62, spin: 1.35 },
   // 05 Total eclipse, centred behind the last words, with its violet corona.
   contact: { x: 0, y: -0.06, r: 0.3, tilt: 0.3, spin: 1.6 },
-  // Inner pages.
-  detail: { x: 0.86, y: -0.78, r: 0.72, tilt: 0.3, spin: 0.6 },
+  // Inner pages: small and high in the corner, away from the reading column.
+  detail: { x: 0.9, y: 0.68, r: 0.12, tilt: 0.3, spin: 0.6 },
   'detail-end': { x: 0, y: -0.06, r: 0.3, tilt: 0.3, spin: 1.2 },
-  page: { x: 0.66, y: 0.1, r: 0.3, tilt: 0.14, spin: 0.3 },
+  page: { x: 0.9, y: 0.68, r: 0.12, tilt: 0.14, spin: 0.3 },
 };
 
 // Portrait screens: the Moon stays out of the way of the text.
 const tall: Record<PoseKey, Pose> = {
   hero: { ...wide.hero, x: 0, y: 0.34, r: 0.125 },
-  about: { ...wide.about, x: 0.9, y: 0.84, r: 0.17 },
-  skills: { ...wide.skills, x: 1.0, y: -1.3, r: 0.2 },
+  about: { ...wide.about, x: 1.0, y: 0.9, r: 0.13 },
+  skills: { ...wide.skills, x: 1.04, y: 0.92, r: 0.15 },
   projects: { ...wide.projects, x: 0, y: -2.25, r: 0.9 },
   contact: { ...wide.contact, y: 0.02, r: 0.2 },
-  detail: { ...wide.detail, x: 0.9, y: -0.9, r: 0.4 },
+  detail: { ...wide.detail, x: 1.0, y: 0.9, r: 0.11 },
   'detail-end': { ...wide['detail-end'], y: 0.02, r: 0.2 },
-  page: { ...wide.page, x: 0.7, y: 0.62, r: 0.16 },
+  page: { ...wide.page, x: 1.0, y: 0.9, r: 0.11 },
 };
 
 export function poseFor(key: PoseKey, aspect: number): Pose {
@@ -70,7 +70,7 @@ export function eclipseFor(progress: number): number {
  *  The sun swings along one fixed path from in front of the Moon to almost behind it,
  *  so the shadow always enters from the same side and a thin rim stays lit at the end. */
 export function sunFor(eclipse: number): [number, number, number] {
-  const theta = eclipse * (164 * Math.PI) / 180;
+  const theta = eclipse * (150 * Math.PI) / 180;
   const s = Math.sin(theta);
   return [-s * 0.93, s * 0.37, Math.cos(theta)];
 }
