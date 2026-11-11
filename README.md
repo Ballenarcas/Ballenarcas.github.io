@@ -56,7 +56,7 @@ To change or remove a project, edit or delete its two files.
 | `src/components/` | The five scenes and the reusable pieces (`Expedition`, `Planet`, `StatusBadge`) |
 | `src/scripts/space/poses.ts` | Where the Moon is and how large in every scene, and how the scroll becomes the eclipse |
 | `src/scripts/space/controller.ts` | Turns the scroll position into the state of the scene |
-| `src/scripts/space/scene.ts` | The Three.js scene: stars, the violet Moon shader and its corona, the orbit's camera rigs |
+| `src/scripts/space/scene.ts` | The Three.js scene: stars, the violet Moon (surface and aura shaders), the orbit's camera rigs |
 | `src/scripts/space/camera.ts` | The only code that moves the camera: rigs and the director that blends them |
 | `src/scripts/space/planets.ts` | The project planets: generated from the project data, orbits, surfaces, picking |
 | `src/scripts/orbit-ui.ts` | Planet labels, selection, the project panel and Escape in the orbit |
@@ -67,6 +67,12 @@ To change or remove a project, edit or delete its two files.
 ## The eclipse
 
 One value, `eclipse`, goes from 0 (full violet Moon) to 1 (total eclipse) with the scroll of the whole page (`eclipseFor` in `poses.ts`). The controller eases it together with the Moon's position, and the scene derives everything from it: the direction of the sun (`sunFor`), the earthshine on the night side, the violet rim and the corona. Poses only place the Moon; nothing else changes the light.
+
+## The Moon
+
+- **Surface**, in three scales: basins, maria and rays come from the Clementine photograph; craters, rims and ridges from NASA's measured relief (LOLA), whose slopes tilt the light and whose curvature finds rims and floors; craters too small for the map are procedural and only appear once they are a few pixels wide. The photograph's brightness runs through the violet palette (deep purple maria, violet and lavender highlands, lilac rays). The sunlight follows lunar reflectance, so the full Moon is evenly bright and the shadow only grows.
+- **Aura**, one shader on one plane behind the Moon, with five layers that each move at their own pace: a breathing halo on the limb, corona-like streamers, short aurora curtains, a small cloud of violet gas and a few faint motes. It grows with the eclipse and leans towards the hidden sun; it steps back when the Moon is close. The rim light on the Moon follows the same pattern as the streamers.
+- On slow devices the fine grit, the smallest craters, the motes and the finer threads go first.
 
 ## The orbit of the projects
 
@@ -89,6 +95,7 @@ Add `?high`, `?low` or `?flat` to the address to force one of them while testing
 
 ## Credits
 
+- Moon relief: the LOLA laser altimeter of NASA's Lunar Reconnaissance Orbiter (`ldem_16`, NASA/GSFC, public domain), resampled to 2048×1024 and stored compressed in `public/textures/moon-relief-2k.webp` (8 bits, tanh of the local height).
 - Moon map: Clementine mission data (USGS), version processed by Jens Meyer and Steve Albers, free for personal non-commercial use. The violet colour is applied in the shader, not baked into the map. To replace it, put another equirectangular map in `public/textures/moon-2k.webp` and `moon-4k.webp` (NASA's CGI Moon Kit is in the public domain).
 - Technology icons: [Simple Icons](https://simpleicons.org).
 - The films of Boost and Votify were recorded with sample data.
