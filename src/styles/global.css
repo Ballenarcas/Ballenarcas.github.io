@@ -237,13 +237,6 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* 04 Expeditions */
-.filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin-top: clamp(28px, 4vw, 48px); }
-.filter button { all: unset; cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); padding: 12px 0; position: relative; transition: color 0.25s; }
-.filter button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 6px; height: 1px; background: var(--soft); transform: scaleX(0); transform-origin: left; transition: transform 0.4s var(--ease); }
-.filter button:hover, .filter button[aria-pressed='true'] { color: var(--ink); }
-.filter button[aria-pressed='true']::after { transform: scaleX(1); }
-.filter button:focus-visible { outline: 2px solid var(--soft); outline-offset: 4px; }
-.filter-count { margin-left: auto; }
 
 .exp { display: grid; gap: 36px; padding-block: clamp(56px, 9vw, 130px); align-items: center; }
 .exp-visual { position: relative; perspective: 1500px; }
@@ -302,10 +295,8 @@ a { color: inherit; text-decoration: none; }
 .orbit-on .orbit-track { height: calc(var(--screens) * 100vh); }
 .orbit-on .orbit-stage { position: sticky; top: 0; height: 100svh; overflow: clip; }
 .orbit-on .orbit-head { position: relative; z-index: 3; padding: clamp(88px, 13svh, 128px) var(--m) 0; max-width: 760px; pointer-events: none; transition: opacity 0.6s var(--ease); }
-.orbit-on .orbit-head .filter { pointer-events: auto; margin-top: clamp(14px, 2.4svh, 28px); }
 .orbit-on .orbit-head .display { font-size: clamp(32px, 4.4vw, 68px); }
 .orbit-on .orbit-head .lead { font-size: clamp(16px, 1.25vw, 19px); }
-.orbit-on .filter-count { margin-left: 0; }
 .orbit-on .orbit-sky { display: block; position: absolute; inset: 0; z-index: 2; }
 .orbit-labels { position: absolute; inset: 0; pointer-events: none; }
 .orbit-label { all: unset; position: absolute; left: 0; top: 0; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; pointer-events: auto; will-change: transform; transition: opacity 0.4s; }
@@ -359,7 +350,6 @@ a { color: inherit; text-decoration: none; }
   .orbit-panel.open { transform: none; }
   .orbit-cover { display: none; }
   .orbit-stage.is-focus .orbit-head { opacity: 0; pointer-events: none; }
-  .orbit-stage.is-focus .orbit-head .filter { pointer-events: none; }
   .orbit-on .orbit-head .lead { display: none; }
 }
 

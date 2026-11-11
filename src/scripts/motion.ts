@@ -162,31 +162,6 @@ function constellations() {
   });
 }
 
-/** Expedition filters: show the projects of one category. */
-function filters() {
-  const bar = document.querySelector<HTMLElement>('[data-filter]');
-  if (!bar) return;
-  const buttons = [...bar.querySelectorAll<HTMLButtonElement>('button')];
-  const items = [...document.querySelectorAll<HTMLElement>('[data-cats]')];
-  const count = document.querySelector<HTMLElement>('[data-filter-count]');
-  const apply = (cat: string) => {
-    let shown = 0;
-    items.forEach((el) => {
-      const on = cat === '*' || (el.dataset.cats ?? '').split('|').includes(cat);
-      el.hidden = !on;
-      if (on) shown++;
-    });
-    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === cat)));
-    if (count) count.textContent = String(shown);
-    // With the orbit on, the list is not shown and the page keeps its length.
-    if (!orbit) {
-      controller?.bind();
-      ScrollTrigger.refresh();
-    }
-  };
-  buttons.forEach((b) => b.addEventListener('click', () => apply(b.dataset.cat!)));
-}
-
 /** Clips play only while they are on screen. */
 function clips() {
   const vids = document.querySelectorAll<HTMLVideoElement>('video[data-autoplay]');
@@ -239,7 +214,6 @@ function init() {
   smooth();
   depth();
   lean();
-  filters();
   constellations();
   clips();
   orbitPage();

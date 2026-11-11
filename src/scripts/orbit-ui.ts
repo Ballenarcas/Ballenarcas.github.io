@@ -1,5 +1,5 @@
 // The page side of the orbit of the projects: the planet labels, the hover and the selection,
-// the project panel, Escape, and the filters. It never moves the camera itself: it asks the scene,
+// the project panel and Escape. It never moves the camera itself: it asks the scene,
 // whose single director owns the camera.
 import type { MoonScene, OrbitState } from './space/scene';
 import type { PlanetDef } from './space/planets';
@@ -116,23 +116,9 @@ export function orbitUi(scene: MoonScene): () => void {
   const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && current) select(null); };
   document.addEventListener('keydown', onKey);
 
-  // Filters: the planets of other categories leave and the orbits close up.
-  const filter = document.querySelector<HTMLElement>('[data-filter]');
-  const onFilter = (e: Event) => {
-    const button = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-cat]');
-    if (!button) return;
-    const cat = button.dataset.cat!;
-    const ids = labels.filter((b) => cat === '*' || (b.dataset.orbitCats ?? '').split('|').includes(cat)).map((b) => b.dataset.planet!);
-    labels.forEach((b) => { b.hidden = !ids.includes(b.dataset.planet!); });
-    scene.showPlanets(ids);
-    if (current && !ids.includes(current)) select(null);
-  };
-  filter?.addEventListener('click', onFilter);
-
   return () => {
     clearTimeout(openTimer);
     document.removeEventListener('keydown', onKey);
-    filter?.removeEventListener('click', onFilter);
     scene.onOrbit = null;
     scene.hover(null);
     // The camera flies back to the Moon while the next page comes in.

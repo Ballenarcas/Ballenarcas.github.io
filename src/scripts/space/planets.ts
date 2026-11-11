@@ -39,7 +39,7 @@ export interface PlanetSpot {
   y: number;
   /** Radius on screen. */
   r: number;
-  /** 0 hidden … 1 fully there (filters, entrance). */
+  /** 0 hidden … 1 fully there (entrance). */
   presence: number;
   /** Hidden behind the Moon. */
   behind: boolean;
@@ -310,7 +310,7 @@ export class PlanetSystem {
     this.layout(false);
   }
 
-  /** Show only these planets (the filter); the others leave and the orbits close up. */
+  /** Show only these planets; the others leave and the orbits close up. */
   show(ids: string[]) {
     const on = new Set(ids);
     for (const b of this.bodies) b.shown = on.has(b.def.id);
@@ -335,7 +335,7 @@ export class PlanetSystem {
     return { at: b.world, radius: b.size * this.group.scale.x };
   }
 
-  /** The shown planets in their order, with their world positions. Depends on the filter only, so the
+  /** The shown planets in their order, with their world positions. Depends on which are shown only, so the
    *  framing changes in one step that the camera then blends. */
   shownWorld() { return this.bodies.filter((b) => b.shown).map((b) => b.world); }
 

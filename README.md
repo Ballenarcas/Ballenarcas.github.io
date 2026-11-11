@@ -34,7 +34,7 @@ Projects are data. Nothing about a project is written in a component.
    | --- | --- |
    | `status` | `completed`, `in-progress` or `archived` |
    | `featured` | `true` gives the project a full expedition; `false` lists it in one line under "More expeditions" |
-   | `categories` | The filters. A new category appears as a filter by itself |
+   | `categories` | Kinds of project. Kept in the data; not shown on the site at the moment |
    | `order`, `date` | Position in the list. `src/data/site.ts` chooses whether the list is sorted by priority or by date |
    | `accent` | Colour of the project's planet |
    | `repo`, `demo` | Links. Leave `demo` out when there is none |
@@ -59,7 +59,7 @@ To change or remove a project, edit or delete its two files.
 | `src/scripts/space/scene.ts` | The Three.js scene: stars, the violet Moon shader and its corona, the orbit's camera rigs |
 | `src/scripts/space/camera.ts` | The only code that moves the camera: rigs and the director that blends them |
 | `src/scripts/space/planets.ts` | The project planets: generated from the project data, orbits, surfaces, picking |
-| `src/scripts/orbit-ui.ts` | Planet labels, selection, the project panel, Escape and filters in the orbit |
+| `src/scripts/orbit-ui.ts` | Planet labels, selection, the project panel and Escape in the orbit |
 | `src/scripts/space/flat.ts` | The 2D fallback |
 | `src/scripts/motion.ts` | Starts the scene and runs the animations of the content |
 | `src/styles/global.css` | Colours, type and every layout |
@@ -75,7 +75,6 @@ With the 3D scene, the expeditions section is a pinned stage the scroll travels 
 - **One camera, one owner.** `camera.ts` describes a camera as a rig (what it looks at, from where, how much fits on screen). The director follows one source at a time, the exploration (the scroll through the section) or one planet. Any change starts from the camera as it is at that moment and blends into the new source, so quick clicks, planet to planet, closing and scrolling during a focus never jump.
 - **Exploration**: the progress is measured on the section itself. The camera circles the Moon, dips towards the plane of the orbits half-way and leans towards each planet in turn.
 - **Focus**: a click, a tap or Enter on a planet's label flies the camera to it, follows it round its orbit and opens its panel; the scroll keeps working. Escape, the close button or clicking empty sky go back to the composition of the current scroll position. Leaving the section closes it.
-- **Filters** send the planets of other categories away and close up the orbits.
 - Without 3D (2D, reduced motion, no script) the section is the list of expeditions, as before.
 
 ## How the scene adapts
