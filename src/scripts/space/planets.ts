@@ -210,6 +210,7 @@ void main() {
   float side = length(s) > 0.05 ? 0.35 + 0.65 * max(dot(normalize(-vN.xy + 1e-5), normalize(s)), 0.0) : 0.7;
   // Additive: the alpha carries the light, so the canvas stays clear around the planet.
   gl_FragColor = vec4(uColor, glow * side * uStrength);
+  #include <colorspace_fragment>
 }`;
 
 const RING_VERT = /* glsl */ `

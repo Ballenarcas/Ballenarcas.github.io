@@ -8,6 +8,7 @@ import {
   LinearFilter,
   LinearMipmapLinearFilter,
   NoColorSpace,
+  RepeatWrapping,
   Matrix3,
   Matrix4,
   Mesh,
@@ -148,7 +149,7 @@ const mat3 R3 = mat3(0.8824, 0.4555, 0.1176, -0.4555, 0.7648, 0.4555, 0.1176, -0
 const mat3 R4 = mat3(-0.2288, 0.9478, -0.2223, -0.5697, 0.0548, 0.82, 0.7894, 0.3142, 0.5274);
 
 // Visible share of a crater octave: 0 when its craters are under ~2 pixels wide.
-float lodFor(float scale, float fw) { return smoothstep(2.0, 5.0, 0.2 / scale / fw); }
+float lodFor(float scale, float fw) { return smoothstep(1.6, 4.5, 0.2 / scale / fw); }
 
 float noise2(vec2 p) {
   vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -185,11 +186,11 @@ void main() {
   if (uCraters > 0.5) {
     vec4 c;
     float l;
-    l = lodFor(70.0, fw); if (l > 0.0) { c = crater(p, R1, 70.0, 3.1, 0.42, l); g += c.xyz; craterShade += c.w; }
-    l = lodFor(150.0, fw); if (l > 0.0) { c = crater(p, R2, 150.0, 7.7, 0.5, l); g += c.xyz; craterShade += c.w; }
+    l = lodFor(34.0, fw); if (l > 0.0) { c = crater(p, R1, 34.0, 3.1, 0.3, l); g += c.xyz; craterShade += c.w; }
+    l = lodFor(75.0, fw); if (l > 0.0) { c = crater(p, R2, 75.0, 7.7, 0.42, l); g += c.xyz; craterShade += c.w; }
     if (uCraters > 1.5) {
-      l = lodFor(320.0, fw); if (l > 0.0) { c = crater(p, R3, 320.0, 1.9, 0.55, l); g += c.xyz; craterShade += c.w; }
-      l = lodFor(680.0, fw); if (l > 0.0) { c = crater(p, R4, 680.0, 5.3, 0.6, l); g += c.xyz; craterShade += c.w; }
+      l = lodFor(160.0, fw); if (l > 0.0) { c = crater(p, R3, 160.0, 1.9, 0.5, l); g += c.xyz; craterShade += c.w; }
+      l = lodFor(340.0, fw); if (l > 0.0) { c = crater(p, R4, 340.0, 5.3, 0.55, l); g += c.xyz; craterShade += c.w; }
     }
   }
   vec3 n = normalize(p - (g - dot(g, p) * p));
@@ -222,7 +223,7 @@ void main() {
   surface *= 1.0 - 0.3 * cavity;
   surface = mix(surface, lin(LAVENDER), 0.08 * rimLight);
   // Maria are not all alike: some lean indigo, some plum, in broad regions like real lava plains.
-  float region = noise(p * 2.3 + 4.0) * 0.65 + noise(p * 5.7) * 0.35;
+  float region = smoothstep(0.3, 0.7, noise(p * 2.3 + 4.0) * 0.65 + noise(p * 5.7) * 0.35);
   float mare = 1.0 - smoothstep(0.3, 0.52, t);
   surface *= mix(vec3(1.0), mix(vec3(0.62, 0.72, 1.3), vec3(1.35, 0.8, 1.0), region) * (0.75 + 0.5 * region), 0.9 * mare);
   // A whisper of magenta in the brightest ground.
@@ -248,6 +249,10 @@ void main() {
   float sheen = pow(max(dot(nW, normalize(K + V)), 0.0), 28.0);
   col += lin(SOFT) * sheen * 0.05 * lit * uExposure;
   col += lin(LILAC) * smoothstep(0.62, 0.86, a) * 0.16 * lit * uExposure;
+  // Rays and bright ejecta stand out from their surroundings, over dark maria too.
+  float around = lum(textureLod(uMap, vUv, 5.0).rgb);
+  float ray = smoothstep(0.05, 0.2, a - around);
+  col += lin(LAVENDER) * ray * 0.22 * lit * uExposure;
 
   // Inside the shadow the Moon is still there: its relief stays readable in deep violet.
   float shade = 1.0 - day;
@@ -364,24 +369,31 @@ void main() {
   float breathe = 0.93 + 0.07 * sin(t * 0.25);
   float core = exp(-x / 0.06);
   float wide = exp(-x / mix(0.3, 0.55, e));
-  float halo = (core * (0.5 + 0.5 * e) + wide * (0.32 + 0.5 * e)) * breathe;
+  // Never an even ring: the limb glow swells and thins round the disc, like the rim light on the Moon.
+  float uneven = 0.45 + 0.95 * noise(dir * 3.2 + vec2(t * 0.02, -t * 0.02));
 
   // Filaments: noise around the disc (sampled on the direction, so there is no seam), warped so
   // the streamers bend, ridged so they are thin, with a length of their own each.
   float tf = t * 0.018;
-  vec2 warp = vec2(noise(dir * 1.8 + vec2(tf, 0.0)), noise(dir * 1.8 + vec2(5.2, -tf))) - 0.5;
-  // Soft streams carry most of the light; a few finer threads ride on them.
-  vec2 fp = dir * 3.4 + warp * 0.7 + vec2(x * 0.12, -x * 0.08);
-  float stream = noise(fp);
-  float ridge = 1.0 - abs(noise(fp * 2.2 + 9.1) * 2.0 - 1.0);
-  float thread = 0.15 + 0.85 * stream * stream + pow(ridge, 6.0) * 0.35 * hi * stream;
   float reach = mix(0.22, 0.45 + 1.1 * noise(dir * 2.4 + 17.0 + tf * 0.5), e);
-  float filaments = thread * exp(-x / reach) * (0.12 + 1.2 * e * e);
+  float filaments = 0.0;
+  // Skipped where the streamers have faded out.
+  if (x < reach * 5.0) {
+    vec2 warp = vec2(noise(dir * 1.8 + vec2(tf, 0.0)), noise(dir * 1.8 + vec2(5.2, -tf))) - 0.5;
+    // Soft streams carry most of the light; a few finer threads ride on them.
+    vec2 fp = dir * 3.4 + warp * 0.7 + vec2(x * 0.12, -x * 0.08);
+    float stream = noise(fp);
+    float ridge = hi > 0.5 ? 1.0 - abs(noise(fp * 2.2 + 9.1) * 2.0 - 1.0) : 0.0;
+    float thread = 0.15 + 0.85 * stream * stream + pow(ridge, 6.0) * 0.35 * stream;
+    filaments = thread * exp(-x / reach) * (0.1 + 0.85 * e * e);
+  }
 
   // Aurora: two thin curtains on wavy rings, shown on some arcs only, flowing round.
   float ta = t * 0.045;
   float ang = atan(dir.y, dir.x);
+  float aurora = 0.0;
   float r1 = 0.2 + 0.05 * sin(ang * 3.0 + ta * 2.0) + 0.06 * (noise(dir * 2.2 + ta) - 0.5);
+  if (x < r1 + 0.6) {
   // A soft lower edge and rays rising from it towards space, like an aurora's curtain.
   float below = exp(-pow(min(x - r1, 0.0) / 0.03, 2.0));
   float above = exp(-max(x - r1, 0.0) / 0.12);
@@ -389,15 +401,16 @@ void main() {
   // Folds of the curtain, uneven and rippling.
   float folds = 0.7 + 0.3 * sin(ang * 26.0 + noise(dir * 5.0 + ta) * 6.0 + ta * 2.0);
   // Only on one or two short arcs at a time, which wander slowly round.
-  float arcs = smoothstep(0.62, 0.86, noise(dir * 1.1 + vec2(ta * 0.5, 2.0)));
-  float aurora = curtain * folds * arcs * (0.16 + 0.16 * e) * hi + curtain * folds * arcs * 0.08 * (1.0 - hi);
+  float arcs = smoothstep(0.5, 0.74, noise(dir * 1.1 + vec2(ta * 0.5, 2.0)));
+  aurora = curtain * folds * arcs * mix(0.18, 0.5 + 0.3 * e, hi);
+  }
 
   // Nebula: a small cloud of dark violet gas around the Moon, slowly turning over.
   float tn = t * 0.006;
   vec2 np = q * 0.75 + vec2(tn, -tn * 0.7);
-  float gas = fbm(np + fbm(np * 0.8 + 11.0, 2.0 + hi) * 1.4, 3.0 + 2.0 * hi);
-  float nebula = smoothstep(0.35, 0.85, gas) * exp(-x / 1.2) * (1.0 - 0.75 * uOrbit) * (0.16 + 0.1 * e);
-  float knots = pow(smoothstep(0.62, 0.9, gas), 2.0) * exp(-x / 0.8) * 0.18 * (1.0 - 0.75 * uOrbit);
+  float gas = fbm(np + noise(np * 0.8 + 11.0) * 1.4, 3.0 + hi);
+  float nebula = smoothstep(0.42, 0.78, gas) * exp(-x / 1.1) * (1.0 - 0.75 * uOrbit) * (0.55 + 0.3 * e);
+  float knots = pow(smoothstep(0.58, 0.85, gas), 2.0) * exp(-x / 0.7) * 0.5 * (1.0 - 0.75 * uOrbit);
 
   // Particles: rare faint motes within the gas, drifting very slowly, twinkling out of step.
   float motes = 0.0;
@@ -405,11 +418,11 @@ void main() {
     vec2 mp = q * 9.0 + vec2(t * 0.004, t * 0.003);
     vec2 cell = floor(mp);
     float h = hash(cell);
-    if (h > 0.86) {
+    if (h > 0.94) {
       vec2 at = cell + 0.2 + 0.6 * vec2(hash(cell + 3.1), hash(cell + 7.7));
-      float px = max(fwidth(mp.x), 1e-4) * 1.4;
+      float px = max(fwidth(mp.x), 1e-4) * 1.9;
       float r = length(mp - at);
-      motes = exp(-r * r / (px * px)) * (0.4 + 0.6 * sin(t * (0.2 + h) + h * 40.0)) * smoothstep(0.3, 0.7, gas) * 0.5;
+      motes = exp(-r * r / (px * px)) * (0.55 + 0.45 * sin(t * (0.2 + h) + h * 40.0)) * smoothstep(0.25, 0.6, gas) * 1.1;
     }
   }
 
@@ -419,8 +432,8 @@ void main() {
   vec3 VIOLET = lin(vec3(0.5, 0.27, 0.84));
   vec3 LAV = lin(vec3(0.8, 0.66, 1.0));
   vec3 AUR = mix(lin(vec3(0.62, 0.34, 0.95)), lin(vec3(0.85, 0.5, 0.95)), noise(dir * 3.0 + ta));
-  vec3 sum = VIOLET * wide * (0.32 + 0.5 * e) * breathe
-           + LAV * core * (0.5 + 0.5 * e) * breathe
+  vec3 sum = VIOLET * wide * (0.2 + 0.32 * e) * breathe * (0.6 + 0.4 * uneven)
+           + LAV * core * (0.5 + 0.5 * e) * breathe * uneven
            + mix(VIOLET, LAV, 0.55) * filaments
            + AUR * aurora
            + mix(INDIGO, GAS, gas) * nebula + GAS * knots
@@ -430,6 +443,7 @@ void main() {
   float I = max(max(sum.r, sum.g), sum.b);
   if (I < 1e-4) discard;
   gl_FragColor = vec4(sum / I, I);
+  #include <colorspace_fragment>
 }`;
 
 const ease = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -534,6 +548,7 @@ export class MoonScene implements SpaceRenderer {
   private async loadMap(url: string) {
     const texture = await new TextureLoader().loadAsync(url);
     texture.colorSpace = SRGBColorSpace;
+    texture.wrapS = RepeatWrapping;
     texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     texture.minFilter = LinearMipmapLinearFilter;
     texture.magFilter = LinearFilter;
@@ -548,6 +563,7 @@ export class MoonScene implements SpaceRenderer {
   private async loadHeight(url: string) {
     const texture = await new TextureLoader().loadAsync(url);
     texture.colorSpace = NoColorSpace;
+    texture.wrapS = RepeatWrapping;
     texture.minFilter = LinearMipmapLinearFilter;
     texture.magFilter = LinearFilter;
     texture.generateMipmaps = true;
@@ -650,7 +666,7 @@ export class MoonScene implements SpaceRenderer {
     this.glow.material.depthTest = f.orbit > 0.001;
     // Scaled to the silhouette, which is a little larger than the radius when seen from near.
     this.glow.scale.setScalar(radius * (distance / Math.sqrt(distance * distance - radius * radius)) * 2 * AURA_SPAN);
-    g.uStrength.value = (0.55 + 1.05 * Math.pow(e, 2.0)) * intro;
+    g.uStrength.value = (0.5 + 0.8 * Math.pow(e, 2.0)) * intro;
     g.uEclipse.value = e;
     (g.uSun.value as Vector2).set(this.light.x, this.light.y);
     g.uTime.value = f.time;
