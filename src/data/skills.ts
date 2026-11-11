@@ -1,8 +1,8 @@
-// The technologies shown as constellations. `icon` is a simple-icons export name; leave it out
-// when the brand has no icon there and the star is drawn plain.
+// The technologies shown as constellations. `icon` is a simple-icons export name. When a brand has
+// no icon there, `mono` gives the short text drawn inside its star instead (two or three characters).
 import type { Lang } from '../i18n/ui';
 
-export interface Skill { name: string; icon?: string }
+export interface Skill { name: string; icon?: string; mono?: string }
 export interface SkillGroup { id: string; name: Record<Lang, string>; items: Skill[] }
 
 export const skillGroups: SkillGroup[] = [
@@ -25,7 +25,7 @@ export const skillGroups: SkillGroup[] = [
     items: [
       { name: 'Python', icon: 'siPython' },
       { name: 'FastAPI', icon: 'siFastapi' },
-      { name: 'C#' },
+      { name: 'C#', mono: 'C#' },
       { name: '.NET', icon: 'siDotnet' },
       { name: 'Node.js', icon: 'siNodedotjs' },
       { name: 'Java', icon: 'siOpenjdk' },
@@ -38,7 +38,7 @@ export const skillGroups: SkillGroup[] = [
       { name: 'PostgreSQL', icon: 'siPostgresql' },
       { name: 'Supabase', icon: 'siSupabase' },
       { name: 'SQLite', icon: 'siSqlite' },
-      { name: 'Entity Framework' },
+      { name: 'Entity Framework', mono: 'EF' },
     ],
   },
   {
@@ -57,10 +57,10 @@ export const skillGroups: SkillGroup[] = [
     name: { es: 'IA / Automatización', en: 'AI / Automation' },
     items: [
       { name: 'Claude Code', icon: 'siClaude' },
-      { name: 'OpenAI Codex' },
+      { name: 'OpenAI Codex', mono: 'Cx' },
       { name: 'Cursor', icon: 'siCursor' },
-      { name: 'Groq' },
-      { name: 'OpenAI-compatible APIs' },
+      { name: 'Groq', mono: 'Gq' },
+      { name: 'OpenAI-compatible APIs', mono: 'API' },
     ],
   },
   {

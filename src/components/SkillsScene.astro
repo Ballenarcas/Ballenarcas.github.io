@@ -1,22 +1,48 @@
 ---
 // Each group of technologies is drawn as a constellation: one star per technology, joined by a line.
 import * as icons from 'simple-icons';
-import { skillGroups } from '../data/skills';
+import { skillGroups, type Skill } from '../data/skills';
 import { t, type Lang } from '../i18n/ui';
 import SceneLabel from './SceneLabel.astro';
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 
-// Star charts: where the stars of a constellation sit, in percent of its box. A group uses the first
-// points of its chart, so a technology can be added to the data without touching this file.
-const base: Array<[number, number][]> = [
-  [[12, 18], [44, 10], [80, 22], [64, 56], [28, 50], [14, 82], [50, 84], [86, 82]],
-  [[10, 50], [36, 14], [70, 12], [88, 48], [58, 48], [30, 82], [70, 84], [8, 16]],
+type Point = [x: number, y: number];
+
+// Star charts, in percent of a square box, in the order the line visits them.
+// Rule that keeps labels apart: any two stars are at least 22 points apart in height or 34 in width.
+// One chart per group (by position), so each constellation has its own shape.
+const charts: Point[][] = [
+  [[16, 10], [58, 13], [84, 36], [40, 34], [20, 60], [62, 62], [44, 86]],
+  [[82, 10], [44, 13], [18, 36], [58, 40], [30, 63], [72, 86]],
+  [[20, 14], [64, 30], [32, 60], [78, 84]],
+  [[14, 12], [50, 22], [84, 12], [68, 52], [30, 80]],
+  [[82, 14], [46, 24], [16, 48], [54, 64], [84, 86]],
+  [[18, 82], [40, 52], [78, 66], [60, 26], [26, 12]],
 ];
-const flipX = (c: [number, number][]) => c.map(([x, y]) => [100 - x, y] as [number, number]);
-const flipY = (c: [number, number][]) => c.map(([x, y]) => [x, 94 - y] as [number, number]);
-const charts = [base[0], flipX(base[1]), flipY(base[0]), base[1], flipX(base[0]), flipY(flipX(base[1]))];
-const iconPath = (name?: string) => (name ? (icons as unknown as Record<string, { path: string } | undefined>)[name]?.path : undefined);
+
+/** A zigzag that always respects the spacing rule. Used when a group has no chart for its size. */
+function autoChart(n: number): Point[] {
+  const rows = Math.ceil(n / 2);
+  return Array.from({ length: n }, (_, i) => {
+    const row = Math.floor(i / 2);
+    const y = rows === 1 ? 40 : 10 + (row * 75) / (rows - 1);
+    const left = row % 2 === 0 ? 20 : 34;
+    return [i % 2 === 0 ? left : left + 46, y] as Point;
+  });
+}
+
+function layout(g: number, count: number) {
+  const chart = charts[g];
+  const points = chart && chart.length === count ? chart : autoChart(count);
+  const rows = new Set(points.map(([, y]) => Math.round(y / 22))).size;
+  // A tall automatic chart gets a taller box, so its rows keep their spacing.
+  const ratio = chart && chart.length === count ? 1 : Math.max(1, rows / 4);
+  return { points, ratio };
+}
+
+const iconPath = (item: Skill) =>
+  item.icon ? (icons as unknown as Record<string, { path: string } | undefined>)[item.icon]?.path : undefined;
 ---
 <section class="scene skills" id="skills" data-pose="skills">
   <div class="scene-head">
@@ -26,22 +52,22 @@ const iconPath = (name?: string) => (name ? (icons as unknown as Record<string, 
   </div>
   <div class="sky">
     {skillGroups.map((group, g) => {
-      const chart = charts[g % charts.length];
-      const points = group.items.map((_, i) => chart[i % chart.length]);
+      const { points, ratio } = layout(g, group.items.length);
       return (
-        <div class="constellation" data-r data-lean={6 + (g % 3) * 5}>
-          <h3 class="hud">{group.name[lang]}</h3>
-          <div class="c-map">
+        <div class="constellation" data-r>
+          <h3 class="hud">{group.name[lang]} <span>· {group.items.length}</span></h3>
+          <div class="c-map" style={`aspect-ratio: 1 / ${ratio}`}>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               <polyline pathLength="1" points={points.map(([x, y]) => `${x},${y}`).join(' ')} />
             </svg>
             <ul>
               {group.items.map((item, i) => {
-                const path = iconPath(item.icon);
+                const path = iconPath(item);
                 return (
                   <li class="c-node" style={`left:${points[i][0]}%;top:${points[i][1]}%;--n:${i}`}>
-                    <i class={`star${path ? '' : ' plain'}`}>
-                      {path && <svg viewBox="0 0 24 24" aria-hidden="true"><path d={path} /></svg>}
+                    <i class="star">
+                      {path ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d={path} /></svg>
+                        : <b aria-hidden="true">{item.mono ?? item.name.slice(0, 2)}</b>}
                     </i>
                     <span>{item.name}</span>
                   </li>

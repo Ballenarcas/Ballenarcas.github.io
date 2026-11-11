@@ -166,24 +166,43 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* 03 Skills: constellations */
-.sky { display: grid; gap: 56px 40px; margin-top: clamp(48px, 7vw, 96px); }
-.constellation h3 { color: var(--ink); display: flex; align-items: center; gap: 12px; }
-.constellation h3::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 12px var(--blue); }
-.c-map { position: relative; aspect-ratio: 5 / 3.5; margin-top: 10px; }
+.sky { --star: 44px; display: grid; gap: 64px clamp(32px, 4vw, 64px); margin-top: clamp(48px, 7vw, 96px); }
+.constellation { transition: opacity 0.5s var(--ease); }
+.constellation h3 { color: var(--ink); font-size: 13px; display: flex; align-items: center; gap: 12px; }
+.constellation h3::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 14px 2px var(--blue); }
+.constellation h3 span { color: var(--dim); }
+.c-map { position: relative; margin: 18px 12px 0; }
 .c-map > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.c-map polyline { fill: none; stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 2.6s var(--ease) 0.25s; }
+.c-map polyline { fill: none; stroke: rgba(176, 204, 255, 0.55); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px rgba(156, 192, 255, 0.55)); stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 2.6s var(--ease) 0.25s, stroke 0.4s; }
 .constellation.in polyline, html:not(.js) .c-map polyline { stroke-dashoffset: 0; }
-.c-node { position: absolute; display: grid; justify-items: center; gap: 5px; width: 0; transform: translateY(-17px); }
-.c-node > * { flex: none; }
-.js .c-node { opacity: 0; transition: opacity 0.9s var(--ease); transition-delay: calc(var(--n) * 150ms + 300ms); }
+.c-node { position: absolute; display: grid; justify-items: center; gap: 6px; width: 0; transform: translateY(calc(var(--star) / -2)); }
+.js .c-node { opacity: 0; transition: opacity 0.9s var(--ease); transition-delay: calc(var(--n) * 140ms + 300ms); }
 .js .constellation.in .c-node { opacity: 1; }
-.star { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: radial-gradient(circle, rgba(156, 192, 255, 0.22), rgba(156, 192, 255, 0) 70%); animation: float 7s ease-in-out infinite; animation-delay: calc(var(--n) * -1.1s); }
-.star svg { width: 17px; height: 17px; fill: currentColor; }
-.star.plain::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 10px 2px rgba(156, 192, 255, 0.7); }
-.c-node span { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--silver); white-space: nowrap; text-align: center; }
-@keyframes float { 50% { transform: translateY(-5px); } }
-@media (min-width: 700px) { .sky { grid-template-columns: 1fr 1fr; } .sky > :nth-child(even) { margin-top: 72px; } }
-@media (min-width: 1100px) { .sky { margin-right: 40%; } }
+.star {
+  width: var(--star); height: var(--star); border-radius: 50%; display: grid; place-items: center; color: #fff;
+  background: radial-gradient(circle, rgba(30, 44, 78, 0.95) 0 55%, rgba(12, 18, 34, 0.9) 70%);
+  box-shadow: 0 0 0 1px rgba(176, 204, 255, 0.4), 0 0 22px rgba(156, 192, 255, 0.35);
+  animation: float 7s ease-in-out infinite; animation-delay: calc(var(--n) * -1.1s);
+  transition: scale 0.35s var(--ease), box-shadow 0.35s;
+}
+.star svg { width: calc(var(--star) * 0.5); height: calc(var(--star) * 0.5); fill: currentColor; }
+.star b { font-family: var(--mono); font-size: calc(var(--star) * 0.3); font-weight: 600; letter-spacing: -0.02em; }
+.c-node span { max-width: 112px; font-size: 13px; line-height: 1.25; color: var(--ink); text-align: center; text-wrap: balance; text-shadow: 0 0 10px #03050a, 0 0 4px #03050a, 0 1px 2px #03050a; transition: color 0.3s; }
+.c-node:hover .star { scale: 1.12; box-shadow: 0 0 0 1px rgba(196, 220, 255, 0.85), 0 0 30px rgba(156, 192, 255, 0.7); }
+.c-node:hover span { color: var(--blue); }
+@media (hover: hover) {
+  .sky:hover .constellation:not(:hover) { opacity: 0.45; }
+  .constellation:hover polyline { stroke: rgba(196, 220, 255, 0.85); }
+}
+@keyframes float { 50% { transform: translateY(-4px); } }
+@media (min-width: 700px) { .sky { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sky > :nth-child(even) { margin-top: 56px; } }
+@media (min-width: 1100px) {
+  .sky { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sky > :nth-child(even) { margin-top: 0; }
+  .sky > :nth-child(3n + 2) { margin-top: 64px; }
+  .sky > :nth-child(3n) { margin-top: 24px; }
+}
+@media (max-width: 699px) { .sky { --star: 40px; gap: 48px; } .c-node span { font-size: 12px; max-width: 100px; } }
 
 /* 04 Expeditions */
 .filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin-top: clamp(28px, 4vw, 48px); }
@@ -315,8 +334,8 @@ a { color: inherit; text-decoration: none; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .js [data-r], .js .c-node { opacity: 1; transform: none; transition: none; }
-  .js .c-node { transform: translateY(-17px); }
+  .js [data-r] { opacity: 1; transform: none; transition: none; }
+  .js .c-node { opacity: 1; transition: none; }
   .js .hero h1 span, .js .hero .rise, .star, .orbit i, .scroll-cue i::after, .status i::after { animation: none !important; }
   .c-map polyline { stroke-dashoffset: 0; transition: none; }
   .exp-shot, .exp:nth-of-type(even) .exp-shot { transform: none; transition: none; }
