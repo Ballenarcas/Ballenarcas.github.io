@@ -124,7 +124,8 @@ export class SpaceController {
 
   private tick = (now: number) => {
     this.raf = this.animate ? requestAnimationFrame(this.tick) : 0;
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    const elapsed = (now - this.last) / 1000;
+    const dt = Math.min(0.05, elapsed);
     this.last = now;
     const y = scrollY;
     // Nothing moved: a still picture needs no new frame, a live one gets by on half of them.
@@ -140,7 +141,8 @@ export class SpaceController {
     if (!this.current || !this.animate || this.eclipse < 0) { this.current = target; this.eclipse = eclipseTarget; }
     else {
       this.follow = Math.min(7, this.follow + dt * 2.4);
-      const k = 1 - Math.exp(-dt * this.follow);
+      // Real elapsed time (up to a tenth of a second), so a slow device still settles on time.
+      const k = 1 - Math.exp(-Math.min(0.1, elapsed) * this.follow);
       this.current = mixPose(this.current, target, k);
       // The same easing as the pose: one clock for placement and light.
       this.eclipse += (eclipseTarget - this.eclipse) * k;

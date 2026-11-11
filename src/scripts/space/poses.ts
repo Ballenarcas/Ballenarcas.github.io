@@ -35,7 +35,7 @@ const tall: Record<PoseKey, Pose> = {
   hero: { ...wide.hero, x: 0, y: 0.34, r: 0.125 },
   about: { ...wide.about, x: 0.9, y: 0.84, r: 0.17 },
   skills: { ...wide.skills, x: 1.0, y: -1.3, r: 0.2 },
-  projects: { ...wide.projects, x: 0, y: -1.5, r: 1.1 },
+  projects: { ...wide.projects, x: 0, y: -2.25, r: 0.9 },
   contact: { ...wide.contact, y: 0.02, r: 0.2 },
   detail: { ...wide.detail, x: 0.9, y: -0.9, r: 0.4 },
   'detail-end': { ...wide['detail-end'], y: 0.02, r: 0.2 },

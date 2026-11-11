@@ -125,7 +125,8 @@ void main() {
 
   // Craters keep their volume even under a frontal sun: shade the relief against a fixed oblique light.
   vec3 R = normalize(vec3(-0.62, 0.5, 0.6));
-  float relief = clamp(1.0 + (dot(nW, R) - dot(pW, R)) * 1.7, 0.5, 1.45);
+  // Close up the photograph is magnified: soften the relief so it does not turn into noise.
+  float relief = clamp(1.0 + (dot(nW, R) - dot(pW, R)) * 1.7 * (1.0 - 0.65 * uZoom), 0.5, 1.45);
 
   // Violet as material: the brightness of the map runs through the palette.
   float h = lum(albedo);

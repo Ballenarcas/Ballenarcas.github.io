@@ -1,13 +1,17 @@
-/* Lunar Experience. One dark field, white and silver type, one pale blue accent. */
+/* Violet Moon. One dark field, silver type, violet light. */
 :root {
-  --bg: #03050a;
-  --ink: #eef2f8;
-  --silver: #b6bfcd;
-  --dim: #8590a3;
-  --line: rgba(190, 208, 235, 0.16);
-  --line-strong: rgba(190, 208, 235, 0.34);
-  --blue: #9cc0ff;
-  --accent: var(--blue);
+  /* Violet Moon */
+  --bg: #080711;        /* Space Black: the field */
+  --surface: #111020;   /* Deep Space: panels */
+  --deep: #251638;      /* Deep Purple: secondary fields */
+  --royal: #65428D;     /* Royal Violet: accents, never text (2.6:1 on the field) */
+  --soft: #A98AD8;      /* Soft Violet: light, focus and highlighted text (7:1) */
+  --ink: #DDD5E9;       /* Lunar Silver: headings and strong text (14:1) */
+  --silver: #BDB3CF;    /* body text (10:1) */
+  --dim: #9C91B4;       /* quiet labels (6.8:1) */
+  --line: rgba(201, 182, 236, 0.16);
+  --line-strong: rgba(201, 182, 236, 0.34);
+  --accent: var(--soft);
 
   --m: clamp(20px, 4.4vw, 72px);
   --gap: clamp(96px, 14vw, 200px);
@@ -37,7 +41,7 @@ img, video, svg { display: block; max-width: 100%; }
 img, video { height: auto; }
 a { color: inherit; text-decoration: none; }
 [hidden] { display: none !important; }
-:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--soft); outline-offset: 4px; border-radius: 4px; }
 ::selection { background: var(--ink); color: var(--bg); }
 
 /* ---------- Type ---------- */
@@ -46,12 +50,12 @@ a { color: inherit; text-decoration: none; }
 .lead { font-size: clamp(18px, 1.5vw, 22px); line-height: 1.5; color: var(--silver); max-width: 34ch; text-wrap: pretty; }
 .label { display: flex; align-items: center; gap: 14px; color: var(--silver); }
 .label::after { content: ''; width: 44px; height: 1px; background: var(--line-strong); }
-.label b { font-weight: 500; color: var(--blue); }
+.label b { font-weight: 500; color: var(--soft); }
 
 /* ---------- Buttons and links ---------- */
 .btn {
   display: inline-flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 24px;
-  border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(3, 5, 10, 0.35);
+  border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(8, 7, 17, 0.35);
   font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
   transition: background-color 0.35s var(--ease), color 0.35s var(--ease), border-color 0.35s, transform 0.35s var(--ease);
 }
@@ -72,18 +76,18 @@ a { color: inherit; text-decoration: none; }
 .space::before {
   content: ''; position: absolute; inset: -10%;
   background:
-    radial-gradient(58% 46% at 80% 16%, rgba(52, 86, 168, 0.2), transparent 70%),
-    radial-gradient(48% 44% at 10% 82%, rgba(30, 58, 128, 0.17), transparent 70%),
-    radial-gradient(40% 30% at 52% 58%, rgba(84, 72, 150, 0.06), transparent 70%);
+    radial-gradient(58% 46% at 80% 16%, rgba(101, 66, 141, 0.26), transparent 70%),
+    radial-gradient(48% 44% at 10% 82%, rgba(70, 40, 110, 0.24), transparent 70%),
+    radial-gradient(40% 30% at 52% 58%, rgba(120, 80, 170, 0.08), transparent 70%);
 }
 /* A sparse still sky, shown until (or instead of) the live one. */
 .space::after {
   content: ''; position: absolute; inset: 0; opacity: 0.75; transition: opacity 1.2s;
   background-image:
-    radial-gradient(1px 1px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 78% 9%, #cfe0ff, transparent),
+    radial-gradient(1px 1px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 78% 9%, #e6dcff, transparent),
     radial-gradient(1.4px 1.4px at 33% 72%, #fff, transparent), radial-gradient(1px 1px at 91% 55%, #fff, transparent),
-    radial-gradient(1px 1px at 58% 34%, #dfe9ff, transparent), radial-gradient(1.6px 1.6px at 6% 61%, #fff, transparent),
-    radial-gradient(1px 1px at 46% 88%, #fff, transparent), radial-gradient(1px 1px at 68% 78%, #cfe0ff, transparent),
+    radial-gradient(1px 1px at 58% 34%, #e6dcff, transparent), radial-gradient(1.6px 1.6px at 6% 61%, #fff, transparent),
+    radial-gradient(1px 1px at 46% 88%, #fff, transparent), radial-gradient(1px 1px at 68% 78%, #e6dcff, transparent),
     radial-gradient(1.2px 1.2px at 24% 43%, #fff, transparent), radial-gradient(1px 1px at 86% 28%, #fff, transparent);
   background-size: 620px 540px;
 }
@@ -100,9 +104,9 @@ a { color: inherit; text-decoration: none; }
 
 .page { position: relative; z-index: 1; overflow-x: clip; }
 
-/* ---------- Fixed instruments: navigation, scene rail, telemetry ---------- */
+/* ---------- Fixed instruments: navigation and scene rail ---------- */
 .nav { position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px var(--m); }
-.nav::before { content: ''; position: absolute; inset: 0 0 -28px 0; z-index: -1; background: linear-gradient(to bottom, rgba(3, 5, 10, 0.86), rgba(3, 5, 10, 0)); pointer-events: none; }
+.nav::before { content: ''; position: absolute; inset: 0 0 -28px 0; z-index: -1; background: linear-gradient(to bottom, rgba(8, 7, 17, 0.86), rgba(8, 7, 17, 0)); pointer-events: none; }
 .nav a { color: var(--silver); transition: color 0.25s; }
 .nav a:hover, .nav a[aria-current] { color: var(--ink); }
 .nav-mark { color: var(--ink) !important; letter-spacing: 0.3em; padding: 12px 0; }
@@ -112,7 +116,7 @@ a { color: inherit; text-decoration: none; }
 .nav-menu { position: relative; }
 .nav-menu summary { list-style: none; cursor: pointer; color: var(--ink); padding: 12px 0; }
 .nav-menu summary::-webkit-details-marker { display: none; }
-.nav-menu ul { position: absolute; right: 0; top: 100%; min-width: 220px; display: grid; gap: 4px; padding: 18px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(6, 9, 16, 0.96); }
+.nav-menu ul { position: absolute; right: 0; top: 100%; min-width: 220px; display: grid; gap: 4px; padding: 18px 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(17, 16, 32, 0.96); }
 .nav-menu li a { display: block; padding: 11px 0; color: var(--ink); }
 @media (min-width: 900px) { .nav-links { display: flex; } .nav-menu { display: none; } }
 
@@ -123,7 +127,7 @@ a { color: inherit; text-decoration: none; }
 .rail a::after { content: ''; width: 14px; height: 1px; background: currentColor; transition: width 0.4s var(--ease); }
 .rail a:hover span, .rail a:focus-visible span { opacity: 1; transform: none; }
 .rail a:hover, .rail a[aria-current] { color: var(--ink); }
-.rail a[aria-current]::after { width: 34px; background: var(--blue); }
+.rail a[aria-current]::after { width: 34px; background: var(--soft); }
 @media (min-width: 1100px) and (min-height: 620px) { .rail { display: block; } }
 
 /* ---------- Entrances. Content is only hidden while the script that reveals it is running. ---------- */
@@ -153,31 +157,26 @@ a { color: inherit; text-decoration: none; }
 .about { padding-block: 0; }
 .about-inner { display: grid; gap: 22px; align-content: center; max-width: 600px; padding-block: var(--gap); }
 .about-inner p:not(.hud) { max-width: 52ch; }
-.about-inner { text-shadow: 0 0 18px rgba(3, 5, 10, 0.9); }
+.about-inner { text-shadow: 0 0 18px rgba(8, 7, 17, 0.9); }
 .interests { display: grid; gap: 8px; margin-top: 8px; }
 .interests li { display: flex; gap: 12px; color: var(--silver); }
-.interests li::before { content: '+'; color: var(--blue); }
+.interests li::before { content: '+'; color: var(--soft); }
 @media (min-width: 900px) {
   .about { min-height: 175svh; }
   .about-inner { position: sticky; top: 0; min-height: 100svh; padding-block: 96px 48px; }
 }
 
-/* 03 Skills: constellations, drawn like star charts */
-.sky { display: grid; gap: clamp(20px, 2.4vw, 32px); margin-top: clamp(48px, 7vw, 96px); }
-.constellation {
-  position: relative; padding: 22px 22px 34px; border-radius: 20px;
-  border: 1px solid rgba(169, 138, 216, 0.22);
-  background: radial-gradient(120% 90% at 30% 0%, rgba(37, 22, 56, 0.55), rgba(17, 16, 32, 0.62));
-  transition: opacity 0.5s var(--ease), border-color 0.4s;
-}
-.constellation:hover, .constellation:focus-within { border-color: rgba(169, 138, 216, 0.45); }
-.constellation h3 { color: var(--ink); font-size: 13px; display: flex; align-items: baseline; gap: 10px; }
-.constellation h3 span { color: var(--dim); }
-.c-map { position: relative; aspect-ratio: 1; margin: 18px 6px 0;
-  background-image: linear-gradient(rgba(169, 138, 216, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(169, 138, 216, 0.07) 1px, transparent 1px);
-  background-size: 12.5% 12.5%; background-position: -1px -1px; border-radius: 6px; }
+/* 03 Skills: constellations, loose in the night sky */
+.sky { display: grid; gap: clamp(40px, 5vw, 72px) clamp(24px, 4vw, 64px); margin-top: clamp(56px, 8vw, 112px); }
+.constellation { position: relative; transition: opacity 0.6s var(--ease); }
+/* The name of a constellation, written on the sky like on an old star chart. */
+.constellation h3 { position: relative; z-index: 1; font-family: var(--display); font-weight: 300; font-size: clamp(17px, 1.5vw, 21px); letter-spacing: 0.02em; color: var(--dim); }
+.c-map { position: relative; aspect-ratio: 1; margin: 6px 0 0; }
+.c-field { position: absolute; inset: -6%; pointer-events: none; }
+.c-field i { position: absolute; width: var(--s); height: var(--s); border-radius: 50%; background: #efe8ff; opacity: var(--o); translate: -50% -50%;
+  animation: twinkle 7s ease-in-out infinite; animation-delay: calc(var(--d) * -1); }
 .c-map > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.c-map line { stroke: rgba(201, 182, 236, 0.5); stroke-width: 0.36; stroke-linecap: round;
+.c-map line { stroke: rgba(201, 182, 236, 0.34); stroke-width: 0.3; stroke-linecap: round;
   stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.6s var(--ease), stroke 0.35s, stroke-width 0.35s;
   transition-delay: calc(var(--n) * 160ms + 200ms), 0s, 0s; }
 .constellation.in line, html:not(.js) .c-map line { stroke-dashoffset: 0; }
@@ -191,7 +190,7 @@ a { color: inherit; text-decoration: none; }
 .star { position: absolute; left: 0; top: 0; width: var(--core); height: var(--core); translate: -50% -50%; border-radius: 50%;
   background: #fbf8ff; box-shadow: 0 0 calc(4px + 10px * var(--glow)) calc(1px + 3px * var(--glow)) rgba(169, 138, 216, calc(0.35 + 0.5 * var(--glow)));
   animation: twinkle 5.5s ease-in-out infinite; animation-delay: calc(var(--n) * -1.3s); transition: scale 0.35s var(--ease); }
-.star::before { content: ''; position: absolute; inset: calc(var(--core) * -0.9); border-radius: 50%; border: 1px solid rgba(201, 182, 236, calc(0.25 + 0.4 * var(--glow))); }
+.star::before { content: ''; position: absolute; inset: calc(var(--core) * -0.9); border-radius: 50%; border: 1px solid rgba(201, 182, 236, calc(0.08 + 0.22 * var(--glow))); }
 .star::after { content: ''; position: absolute; inset: calc(var(--core) * -2.6); border-radius: 50%; background: radial-gradient(circle, rgba(169, 138, 216, calc(0.22 * var(--glow))), transparent 70%); }
 .c-node > span { position: absolute; left: 0; top: calc(var(--core) + 10px); translate: -50% 0; width: max-content; max-width: 132px;
   display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
@@ -209,24 +208,45 @@ a { color: inherit; text-decoration: none; }
 .c-node:focus-visible > span { outline: 1px solid var(--soft); outline-offset: 4px; border-radius: 4px; }
 @keyframes twinkle { 50% { opacity: 0.72; } }
 @media (hover: hover) {
-  .sky:hover .constellation:not(:hover) { opacity: 0.55; }
+  .sky:hover .constellation:not(:hover) { opacity: 0.5; }
+  .constellation:hover h3 { color: var(--ink); }
 }
-@media (min-width: 700px) { .sky { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1100px) { .sky { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-right: 96px; } }
-@media (max-width: 699px) { .constellation { padding: 18px 16px 30px; } .c-node > span { font-size: 12px; max-width: 108px; } }
+/* Not a grid: each constellation has its own size and place in the sky. */
+@media (min-width: 700px) {
+  .sky { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .constellation:nth-child(even) { margin-top: 96px; }
+  .constellation:nth-child(4n + 1) { width: 88%; }
+  .constellation:nth-child(4n + 2) { width: 92%; justify-self: end; }
+  .constellation:nth-child(4n + 3) { width: 94%; justify-self: center; }
+}
+@media (min-width: 1100px) {
+  .sky { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-right: 96px; }
+  .constellation:nth-child(n) { margin-top: 0; width: auto; justify-self: stretch; }
+  .constellation:nth-child(1) { width: 92%; }
+  .constellation:nth-child(2) { margin-top: 120px; width: 84%; justify-self: center; }
+  .constellation:nth-child(3) { margin-top: 30px; width: 90%; justify-self: end; }
+  .constellation:nth-child(4) { margin-top: -40px; width: 86%; justify-self: end; }
+  .constellation:nth-child(5) { margin-top: 70px; width: 94%; }
+  .constellation:nth-child(6) { margin-top: -10px; width: 84%; justify-self: center; }
+}
+@media (max-width: 699px) {
+  .constellation:nth-child(odd) { width: 94%; }
+  .constellation:nth-child(even) { width: 90%; justify-self: end; }
+  .c-node > span { font-size: 12px; max-width: 108px; }
+}
 
 /* 04 Expeditions */
 .filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin-top: clamp(28px, 4vw, 48px); }
 .filter button { all: unset; cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); padding: 12px 0; position: relative; transition: color 0.25s; }
-.filter button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 6px; height: 1px; background: var(--blue); transform: scaleX(0); transform-origin: left; transition: transform 0.4s var(--ease); }
+.filter button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 6px; height: 1px; background: var(--soft); transform: scaleX(0); transform-origin: left; transition: transform 0.4s var(--ease); }
 .filter button:hover, .filter button[aria-pressed='true'] { color: var(--ink); }
 .filter button[aria-pressed='true']::after { transform: scaleX(1); }
-.filter button:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+.filter button:focus-visible { outline: 2px solid var(--soft); outline-offset: 4px; }
 .filter-count { margin-left: auto; }
 
 .exp { display: grid; gap: 36px; padding-block: clamp(56px, 9vw, 130px); align-items: center; }
 .exp-visual { position: relative; perspective: 1500px; }
-.exp-shot { position: relative; z-index: 1; display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #0a0e17; box-shadow: 0 50px 90px -40px rgba(0, 0, 0, 0.9); transform: rotateY(-7deg) rotateX(2deg); transition: transform 0.9s var(--ease), border-color 0.4s; }
+.exp-shot { position: relative; z-index: 1; display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #111020; box-shadow: 0 50px 90px -40px rgba(0, 0, 0, 0.9); transform: rotateY(-7deg) rotateX(2deg); transition: transform 0.9s var(--ease), border-color 0.4s; }
 .exp-shot:hover { transform: none; border-color: var(--line-strong); }
 .exp-shot video, .exp-shot img { width: 100%; }
 .exp-shot.portrait { width: min(290px, 62vw); border-radius: 30px; margin-inline: auto; }
@@ -241,7 +261,7 @@ a { color: inherit; text-decoration: none; }
 .planet::after { content: ''; position: absolute; inset: 0; border-radius: 50%; opacity: 0.35; mix-blend-mode: overlay;
   background: repeating-linear-gradient(172deg, rgba(255, 255, 255, 0.5) 0 2px, transparent 2px 9px, rgba(0, 0, 0, 0.5) 9px 12px, transparent 12px 21px); }
 .exp-visual .planet { position: absolute; z-index: 2; left: -22px; top: -30px; }
-.exp-info { display: grid; gap: 18px; align-content: center; justify-items: start; text-shadow: 0 0 22px rgba(3, 5, 10, 0.95), 0 0 4px rgba(3, 5, 10, 0.8); }
+.exp-info { display: grid; gap: 18px; align-content: center; justify-items: start; text-shadow: 0 0 22px rgba(8, 7, 17, 0.95), 0 0 4px rgba(8, 7, 17, 0.8); }
 .exp-info .btn { text-shadow: none; }
 .exp-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; }
 .exp-name { font-family: var(--display); font-weight: 300; font-size: clamp(40px, 6vw, 92px); letter-spacing: -0.035em; line-height: 0.98; color: var(--ink); }
@@ -251,7 +271,7 @@ a { color: inherit; text-decoration: none; }
 .exp-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 26px; margin-top: 8px; }
 .status { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); }
 .status i { position: relative; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.status[data-status='in-progress'] { color: var(--blue); }
+.status[data-status='in-progress'] { color: var(--soft); }
 .status[data-status='in-progress'] i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: pulse 2.2s ease-out infinite; }
 .status[data-status='archived'] { color: var(--dim); }
 .status[data-status='archived'] i { background: none; box-shadow: inset 0 0 0 1px currentColor; }
@@ -279,9 +299,9 @@ a { color: inherit; text-decoration: none; }
 .contact .lead { max-width: 32ch; }
 .mail { font-family: var(--display); font-weight: 300; font-size: clamp(20px, 4.4vw, 62px); letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); position: relative; padding-bottom: 0.14em; }
 .mail::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--line-strong); transform-origin: left; transition: transform 0.6s var(--ease), background-color 0.3s; }
-.mail:hover::after { background: var(--blue); transform: scaleX(1.03); }
+.mail:hover::after { background: var(--soft); transform: scaleX(1.03); }
 .contact-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 34px; }
-.contact::after { content: ''; position: absolute; inset: auto 0 0 0; height: 150px; background: linear-gradient(to top, rgba(3, 5, 10, 0.92), rgba(3, 5, 10, 0)); pointer-events: none; }
+.contact::after { content: ''; position: absolute; inset: auto 0 0 0; height: 150px; background: linear-gradient(to top, rgba(8, 7, 17, 0.92), rgba(8, 7, 17, 0)); pointer-events: none; }
 .contact-foot { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 32px; text-align: center; }
 .contact-foot p { color: var(--silver); max-width: 60ch; }
 .contact-foot a { color: var(--ink); padding: 12px 0; display: inline-block; }
@@ -308,7 +328,7 @@ a { color: inherit; text-decoration: none; }
 .pbody { display: grid; gap: 14px var(--m); padding: var(--gap) var(--m) 0; }
 .pbody h2 { font-family: var(--display); font-weight: 300; font-size: clamp(26px, 2.8vw, 40px); letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); margin-top: clamp(32px, 5vw, 56px); }
 .pbody h2:first-child { margin-top: 0; }
-.pbody p, .pbody li { max-width: 62ch; text-shadow: 0 0 18px rgba(3, 5, 10, 0.95), 0 0 3px rgba(3, 5, 10, 0.8); }
+.pbody p, .pbody li { max-width: 62ch; text-shadow: 0 0 18px rgba(8, 7, 17, 0.95), 0 0 3px rgba(8, 7, 17, 0.8); }
 @media (min-width: 900px) {
   .pbody { grid-template-columns: repeat(12, minmax(0, 1fr)); }
   .pbody > h2 { grid-column: 1 / 5; margin-top: clamp(40px, 6vw, 88px); }
@@ -318,7 +338,7 @@ a { color: inherit; text-decoration: none; }
 }
 .gallery { display: grid; gap: var(--m); padding: var(--gap) var(--m); }
 .gallery h2 { grid-column: 1 / -1; }
-.gallery figure { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #0a0e17; }
+.gallery figure { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #111020; }
 .gallery img { width: 100%; }
 .gallery.portrait { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .gallery.portrait figure { border-radius: 22px; }
