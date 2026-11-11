@@ -6,11 +6,11 @@ const letters = [...author.name];
 ---
 <section class="hero" id="top" data-pose="hero" data-hero>
   <div class="hero-copy" data-lean="14">
-    <p class="hud rise" style="--t:1.5s">{t(lang, 'hero.role')}</p>
+    <p class="hud rise" style="--t:0.75s">{t(lang, 'hero.role')}</p>
     <h1 aria-label={author.name}>
       {letters.map((ch, i) => <span aria-hidden="true" style={`--i:${i}`}>{ch === ' ' ? ' ' : ch}</span>)}
     </h1>
-    <p class="lead rise" style="--t:1.75s">{t(lang, 'hero.phrase')}</p>
+    <p class="lead rise" style="--t:0.95s">{t(lang, 'hero.phrase')}</p>
   </div>
-  <a class="scroll-cue hud rise" style="--t:2.3s" href="#about">{t(lang, 'hero.cue')}<i></i></a>
+  <a class="scroll-cue hud rise" style="--t:1.5s" href="#about">{t(lang, 'hero.cue')}<i></i></a>
 </section>

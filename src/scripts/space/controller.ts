@@ -15,6 +15,8 @@ export interface Frame extends Pose {
 }
 
 export interface SpaceRenderer {
+  /** True when the picture changes by itself (stars twinkle, the Moon turns) and needs frames while idle. */
+  readonly alive: boolean;
   draw(frame: Frame): void;
   resize(width: number, height: number): void;
   dispose(): void;
@@ -36,6 +38,9 @@ export class SpaceController {
   private introStart = 0;
   private width = 1;
   private height = 1;
+  private maxScroll = 1;
+  private lastY = -1;
+  private idle = 0;
   private observer: ResizeObserver | null = null;
   /** Follow speed. Lower right after a page change, so the Moon glides to its new place. */
   private follow = 7;
@@ -73,6 +78,8 @@ export class SpaceController {
       top: el.getBoundingClientRect().top + scrollY,
       key: el.dataset.pose as PoseKey,
     }));
+    this.maxScroll = Math.max(1, document.documentElement.scrollHeight - this.height);
+    this.lastY = -1;
     this.renderer?.resize(this.width, this.height);
   };
 
@@ -115,6 +122,12 @@ export class SpaceController {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     const y = scrollY;
+    // Nothing moved: a still picture needs no new frame, a live one gets by on half of them.
+    const pointerMoving = Math.abs(this.pointerTarget[0] - this.pointer[0]) + Math.abs(this.pointerTarget[1] - this.pointer[1]) > 0.002;
+    const busy = y !== this.lastY || pointerMoving || now - this.introStart < 3200 || this.follow < 7;
+    this.lastY = y;
+    this.idle = busy ? 0 : this.idle + 1;
+    if (this.idle > 30 && this.renderer && (!this.renderer.alive || this.idle % 2 === 1)) return;
     const target = this.target(y);
     if (!this.current || !this.animate) this.current = target;
     else {
@@ -123,13 +136,12 @@ export class SpaceController {
     }
     const k = 1 - Math.exp(-dt * 3);
     this.pointer = [this.pointer[0] + (this.pointerTarget[0] - this.pointer[0]) * k, this.pointer[1] + (this.pointerTarget[1] - this.pointer[1]) * k];
-    const max = Math.max(1, document.documentElement.scrollHeight - this.height);
     const frame: Frame = {
       ...this.current,
       time: now / 1000,
       intro: this.animate ? clamp01((now - this.introStart) / 2600) : 1,
       pointer: this.pointer,
-      progress: clamp01(y / max),
+      progress: clamp01(y / this.maxScroll),
       screens: y / this.height,
     };
     this.renderer?.draw(frame);

@@ -39,8 +39,8 @@ const wide: Record<PoseKey, Pose> = {
 // Portrait screens: the Moon stays out of the way of the text and is dimmer behind it.
 const tall: Record<PoseKey, Pose> = {
   hero: { ...wide.hero, x: 0, y: 0.34, r: 0.125 },
-  about: { ...wide.about, x: 0.62, y: 0.66, r: 0.2, exposure: 0.85 },
-  skills: { ...wide.skills, x: 0.95, y: -1.06, r: 0.34, exposure: 0.55 },
+  about: { ...wide.about, x: 0.9, y: 0.84, r: 0.17, exposure: 0.5 },
+  skills: { ...wide.skills, x: 0.95, y: -1.08, r: 0.3, exposure: 0.4 },
   projects: { ...wide.projects, x: 0, y: -1.5, r: 1.1, ambient: 0.018 },
   contact: { ...wide.contact, x: 0, y: -3.72, r: 1.6 },
   detail: { ...wide.detail, x: 0.9, y: -0.9, r: 0.4 },

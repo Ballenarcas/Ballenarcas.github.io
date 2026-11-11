@@ -56,13 +56,14 @@ function space() {
 }
 
 // Distance to the surface, read out as the journey advances.
-let lastReading = '';
+let readout: HTMLElement | null = null;
+let lastKm = -1;
 function telemetry(frame: Frame) {
-  const out = document.querySelector<HTMLElement>('[data-telemetry]');
-  if (!out) return;
-  const km = Math.round((384400 * Math.pow(1 - frame.progress, 3)) / 10) * 10;
-  const text = frame.progress > 0.992 ? out.dataset.done! : `${km.toLocaleString(document.documentElement.lang)} km`;
-  if (text !== lastReading) { out.textContent = text; lastReading = text; }
+  if (!readout) return;
+  const km = frame.progress > 0.992 ? 0 : Math.round((384400 * Math.pow(1 - frame.progress, 3)) / 10) * 10;
+  if (km === lastKm) return;
+  lastKm = km;
+  readout.textContent = km === 0 ? readout.dataset.done! : `${km.toLocaleString(document.documentElement.lang)} km`;
 }
 
 function reveals() {
@@ -187,6 +188,8 @@ function smooth() {
 
 function init() {
   document.documentElement.classList.add('ready');
+  readout = document.querySelector<HTMLElement>('[data-telemetry]');
+  lastKm = -1;
   space();
   reveals();
   rail();

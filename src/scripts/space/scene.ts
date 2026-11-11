@@ -160,6 +160,7 @@ const ease = (t: number) => 1 - Math.pow(1 - t, 3);
 
 export class MoonScene implements SpaceRenderer {
   readonly ready: Promise<void>;
+  readonly alive = true;
   private renderer: WebGLRenderer;
   private scene = new Scene();
   private camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
