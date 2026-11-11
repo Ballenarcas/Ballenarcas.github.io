@@ -121,6 +121,26 @@ function lean() {
   cleanups.push(() => removeEventListener('pointermove', move));
 }
 
+/** Constellations: lighting a star lights the lines that touch it (pointer, keyboard focus or tap). */
+function constellations() {
+  document.querySelectorAll<HTMLElement>('[data-constellation]').forEach((group) => {
+    const lines = [...group.querySelectorAll<SVGLineElement>('line')];
+    const nodes = [...group.querySelectorAll<HTMLElement>('.c-node')];
+    const light = (node: HTMLElement | null) => {
+      const i = node?.dataset.i;
+      nodes.forEach((n) => n.classList.toggle('on', n === node));
+      lines.forEach((l) => l.classList.toggle('on', i !== undefined && (l.dataset.a === i || l.dataset.b === i)));
+    };
+    nodes.forEach((n) => {
+      n.addEventListener('pointerenter', () => light(n));
+      n.addEventListener('focus', () => light(n));
+      n.addEventListener('click', () => light(n));
+    });
+    group.addEventListener('pointerleave', () => light(null));
+    group.addEventListener('focusout', (e) => { if (!group.contains(e.relatedTarget as Node)) light(null); });
+  });
+}
+
 /** Expedition filters: show the projects of one category. */
 function filters() {
   const bar = document.querySelector<HTMLElement>('[data-filter]');
@@ -184,6 +204,7 @@ function init() {
   depth();
   lean();
   filters();
+  constellations();
   clips();
   menu();
   ScrollTrigger.refresh();
