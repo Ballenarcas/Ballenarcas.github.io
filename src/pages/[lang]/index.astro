@@ -1,11 +1,13 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Nav from '../../components/Nav.astro';
+import Instruments from '../../components/Instruments.astro';
 import Hero from '../../components/Hero.astro';
-import Work from '../../components/Work.astro';
-import Band from '../../components/Band.astro';
-import About from '../../components/About.astro';
-import Footer from '../../components/Footer.astro';
-import { author, languages, t, type Lang } from '../../i18n/ui';
+import AboutScene from '../../components/AboutScene.astro';
+import SkillsScene from '../../components/SkillsScene.astro';
+import Expeditions from '../../components/Expeditions.astro';
+import Contact from '../../components/Contact.astro';
+import { author, languages, type Lang } from '../../i18n/ui';
 import { projectsFor } from '../../lib';
 
 export const getStaticPaths = () => languages.map((lang) => ({ params: { lang } }));
@@ -21,12 +23,14 @@ const jsonLd = {
   sameAs: [author.github, author.linkedin],
 };
 ---
-<Base lang={lang} jsonLd={jsonLd} themeColor={projects[0]?.data.ground}>
-  <Hero lang={lang} projects={projects} />
+<Base lang={lang} jsonLd={jsonLd}>
+  <Nav lang={lang} home />
+  <Instruments lang={lang} />
   <main id="main">
-    <Work lang={lang} projects={projects} />
-    <Band />
-    <About lang={lang} />
+    <Hero lang={lang} />
+    <AboutScene lang={lang} />
+    <SkillsScene lang={lang} />
+    <Expeditions lang={lang} projects={projects} />
   </main>
-  <Footer lang={lang} />
+  <Contact lang={lang} n={5} />
 </Base>

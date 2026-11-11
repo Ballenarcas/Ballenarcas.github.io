@@ -1,0 +1,22 @@
+---
+import { t, type Lang } from '../i18n/ui';
+import SceneLabel from './SceneLabel.astro';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+---
+<section class="scene about" id="about" data-pose="about">
+  <div class="about-inner">
+    <SceneLabel n={2} text={t(lang, 'nav.about')} />
+    <h2 class="display" data-r style="--d:1">{t(lang, 'about.title')}</h2>
+    <p data-r style="--d:2">{t(lang, 'about.p1')}</p>
+    <p data-r style="--d:3">{t(lang, 'about.p2')}</p>
+    <p data-r style="--d:4">{t(lang, 'about.p3')}</p>
+    <ul class="interests hud" data-r style="--d:5" aria-label={t(lang, 'about.interests')}>
+      <li>{t(lang, 'about.i1')}</li>
+      <li>{t(lang, 'about.i2')}</li>
+      <li>{t(lang, 'about.i3')}</li>
+      <li>{t(lang, 'about.i4')}</li>
+    </ul>
+    <p data-r style="--d:6"><a class="link" href={`/${lang}/about/`}>{t(lang, 'about.more')}</a></p>
+  </div>
+</section>

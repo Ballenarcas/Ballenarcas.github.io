@@ -1,39 +1,16 @@
 ---
-import type { CollectionEntry } from 'astro:content';
 import { author, t, type Lang } from '../i18n/ui';
-import Nav from './Nav.astro';
-interface Props { lang: Lang; projects: CollectionEntry<'projects'>[] }
-const { lang, projects } = Astro.props;
-const withFilm = projects.filter((p) => p.data.loop);
-const first = withFilm[0];
-const slug = (p: CollectionEntry<'projects'>) => p.id.split('/')[1];
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const letters = [...author.name];
 ---
-<header class="hero field" id="top" data-hero style={first ? `--g:${first.data.ground};--i:${first.data.ink}` : undefined}>
-  <Nav lang={lang} home />
-  <h1 class="mon">
-    <span class="l1 mask"><span>{author.first}</span></span>
-    <span class="l2 mask" style="--d:1"><span>{author.last}</span></span>
-  </h1>
-  <div class="hero-copy">
-    <p data-r style="--d:1">{t(lang, 'hero.sentence')}</p>
-    <div class="picker" role="group" aria-label={t(lang, 'hero.pick')} data-r style="--d:2">
-      {withFilm.map((p, i) => (
-        <button class="btn quiet" type="button" aria-pressed={i === 0 ? 'true' : 'false'} data-pick={i}
-          data-g={p.data.ground} data-i={p.data.ink} data-href={`/${lang}/projects/${slug(p)}/`}
-          data-title={p.data.title} data-tagline={p.data.tagline}>{p.data.title}</button>
-      ))}
-    </div>
-    {first && (
-      <div class="hero-now" data-r style="--d:3" aria-live="polite">
-        <a class="btn" href={`/${lang}/projects/${slug(first)}/`} data-now-link>{t(lang, 'hero.open')} <span data-now-title>{first.data.title}</span></a>
-        <span data-now-tagline>{first.data.tagline}</span>
-      </div>
-    )}
+<section class="hero" id="top" data-pose="hero" data-hero>
+  <div class="hero-copy" data-lean="14">
+    <p class="hud rise" style="--t:1.5s">{t(lang, 'hero.role')}</p>
+    <h1 aria-label={author.name}>
+      {letters.map((ch, i) => <span aria-hidden="true" style={`--i:${i}`}>{ch === ' ' ? ' ' : ch}</span>)}
+    </h1>
+    <p class="lead rise" style="--t:1.75s">{t(lang, 'hero.phrase')}</p>
   </div>
-  <div class="hero-film" data-r style="--d:1">
-    {withFilm.map((p, i) => (
-      <video class={i === 0 ? 'on' : undefined} src={i === 0 ? p.data.loop : undefined} data-src={p.data.loop} poster={p.data.loop!.replace('.mp4', '.jpg')} muted loop playsinline preload={i === 0 ? 'auto' : 'none'}
-        aria-label={p.data.coverAlt} data-film={i}></video>
-    ))}
-  </div>
-</header>
+  <a class="scroll-cue hud rise" style="--t:2.3s" href="#about">{t(lang, 'hero.cue')}<i></i></a>
+</section>

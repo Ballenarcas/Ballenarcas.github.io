@@ -1,0 +1,56 @@
+---
+// One project as an expedition. Everything shown comes from the project's data file.
+// `compact` is the short form used for projects that are not featured.
+import { Image } from 'astro:assets';
+import { t, type Lang } from '../i18n/ui';
+import { slugOf, type Project } from '../lib';
+import Planet from './Planet.astro';
+import StatusBadge from './StatusBadge.astro';
+interface Props { lang: Lang; project: Project; index: number; compact?: boolean }
+const { lang, project, index, compact = false } = Astro.props;
+const d = project.data;
+const slug = slugOf(project);
+const href = `/${lang}/projects/${slug}/`;
+const portrait = d.videoOrientation === 'portrait';
+const cats = d.categories.join('|');
+const number = String(index + 1).padStart(2, '0');
+---
+{compact ? (
+  <article class="exp-row" data-cats={cats} style={`--accent:${d.accent}`}>
+    <Planet accent={d.accent} />
+    <h4><a href={href}>{d.title}</a> <StatusBadge lang={lang} status={d.status} /></h4>
+    <p>{d.summary}</p>
+    <div class="exp-links">
+      <a class="link" href={href}>{t(lang, 'work.open')}</a>
+      <a class="link ext" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>
+      {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
+    </div>
+  </article>
+) : (
+  <article class={`exp ${portrait ? 'portrait' : 'landscape'}`} data-cats={cats} style={`--accent:${d.accent}`}>
+    <div class="exp-visual" data-r>
+      <div class="orbit"><i></i></div>
+      <a class={`exp-shot ${portrait ? 'portrait' : 'landscape'}`} href={href} aria-label={`${t(lang, 'work.open')}: ${d.title}`} data-depth="0.08">
+        {d.loop ? (
+          <video data-autoplay data-src={d.loop} poster={d.loop.replace('.mp4', '.jpg')} muted loop playsinline preload="none"
+            width={portrait ? 560 : 1280} height={portrait ? 1212 : 800} aria-label={d.coverAlt}></video>
+        ) : (
+          <Image src={d.cover} alt={d.coverAlt} widths={portrait ? [360, 560, 780] : [640, 1024, 1680]}
+            sizes={portrait ? '290px' : '(min-width: 960px) 56vw, 100vw'} loading="lazy" />
+        )}
+      </a>
+      <Planet accent={d.accent} name={`planet-${slug}`} />
+    </div>
+    <div class="exp-info">
+      <p class="exp-meta hud" data-r><span>{lang === 'es' ? 'Expedición' : 'Expedition'} {number}</span><StatusBadge lang={lang} status={d.status} /></p>
+      <h3 class="exp-name" data-r style="--d:1"><a href={href} transition:name={`title-${slug}`}>{d.title}</a></h3>
+      <p data-r style="--d:2">{d.summary}</p>
+      <p class="exp-tech hud" data-r style="--d:3">{d.stack.join(' · ')}</p>
+      <div class="exp-links" data-r style="--d:4">
+        <a class="btn" href={href}>{t(lang, 'work.open')}</a>
+        <a class="link ext" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>
+        {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
+      </div>
+    </div>
+  </article>
+)}

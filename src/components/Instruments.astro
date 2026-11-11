@@ -1,0 +1,24 @@
+---
+// The fixed instruments of the home page: the rail of scenes and the distance read-out.
+import { t, type Lang } from '../i18n/ui';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const scenes = [
+  ['top', t(lang, 'nav.home')],
+  ['about', t(lang, 'nav.about')],
+  ['skills', t(lang, 'nav.skills')],
+  ['expeditions', t(lang, 'nav.work')],
+  ['contact', t(lang, 'nav.contact')],
+];
+---
+<nav class="rail hud" data-rail aria-label={lang === 'es' ? 'Escenas' : 'Scenes'}>
+  <ol>
+    {scenes.map(([id, label], i) => (
+      <li><a href={`#${id}`} aria-current={i === 0 ? 'true' : undefined}><span>{String(i + 1).padStart(2, '0')} {label}</span></a></li>
+    ))}
+  </ol>
+</nav>
+<div class="telemetry hud" aria-hidden="true">
+  {t(lang, 'telemetry.label')}
+  <output data-telemetry data-done={t(lang, 'telemetry.done')}>384,400 km</output>
+</div>

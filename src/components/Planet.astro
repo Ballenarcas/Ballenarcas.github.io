@@ -1,0 +1,6 @@
+---
+// A project's planet: a sphere shaded with CSS in the project's colour.
+interface Props { accent: string; name?: string }
+const { accent, name } = Astro.props;
+---
+<span class="planet" style={`--accent:${accent}`} aria-hidden="true" transition:name={name}></span>
