@@ -1,51 +1,45 @@
-// Where the Moon is, how large and how it is lit, for every scene of the journey.
+// Where the Moon is and how large, for every scene of the journey. Poses hold placement only:
+// the light comes from one value, the eclipse, which follows the scroll of the whole page.
 // x, y: centre of the Moon in half-viewport units (0,0 is the centre of the screen, +y is up).
-// r: radius as a fraction of the viewport height.
-// light: direction towards the sun (it is normalised later). +z points at the viewer.
-// tilt, spin: rotation of the surface, in radians. ambient: earthshine on the night side.
+// r: radius as a fraction of the viewport height. tilt, spin: rotation of the surface, in radians.
 
 export interface Pose {
   x: number;
   y: number;
   r: number;
-  light: [number, number, number];
   tilt: number;
   spin: number;
-  exposure: number;
-  ambient: number;
-  glow: number;
 }
 
 export type PoseKey = 'hero' | 'about' | 'skills' | 'projects' | 'contact' | 'detail' | 'detail-end' | 'page';
 
 const wide: Record<PoseKey, Pose> = {
-  // 01 A small gibbous Moon hanging in space.
-  hero: { x: 0, y: 0.26, r: 0.17, light: [-0.55, 0.35, 0.76], tilt: 0.1, spin: 0, exposure: 1.05, ambient: 0.012, glow: 0.5 },
-  // 02 It grows and drifts right; the lit half faces the text.
-  about: { x: 0.5, y: -0.04, r: 0.4, light: [-0.9, 0.22, 0.38], tilt: 0.16, spin: 0.35, exposure: 1.1, ambient: 0.014, glow: 0.42 },
-  // 03 The Moon sinks to the bottom-right corner and dims: the constellations take the sky.
-  skills: { x: 1.06, y: -1.4, r: 0.32, light: [-0.7, 0.62, 0.34], tilt: 0.34, spin: 0.85, exposure: 0.6, ambient: 0.012, glow: 0.2 },
-  // 04 Low orbit over the night side: only the limb is lit, the ground below is in earthshine.
-  projects: { x: 0, y: -1.36, r: 1.1, light: [0.2, 0.36, -0.91], tilt: 0.62, spin: 1.35, exposure: 1.15, ambient: 0.02, glow: 0.1 },
-  // 05 Touchdown: the horizon at sunrise.
-  contact: { x: 0, y: -6.86, r: 3.2, light: [0.18, 0.5, -0.42], tilt: 1.12, spin: 1.7, exposure: 1.35, ambient: 0.03, glow: 0 },
+  // 01 A small full violet Moon hanging in space.
+  hero: { x: 0, y: 0.26, r: 0.17, tilt: 0.1, spin: 0 },
+  // 02 It grows and drifts right while the shadow comes in from its far side.
+  about: { x: 0.5, y: -0.04, r: 0.4, tilt: 0.16, spin: 0.35 },
+  // 03 Half in shadow, it sinks to the bottom-right corner: the constellations take the sky.
+  skills: { x: 1.06, y: -1.4, r: 0.32, tilt: 0.34, spin: 0.85 },
+  // 04 Low orbit: a large Moon below the expeditions, only its edge still lit.
+  projects: { x: 0, y: -1.36, r: 1.1, tilt: 0.62, spin: 1.35 },
+  // 05 Total eclipse, centred behind the last words, with its violet corona.
+  contact: { x: 0, y: -0.06, r: 0.3, tilt: 0.3, spin: 1.6 },
   // Inner pages.
-  // Inner pages: a dark Moon with a thin crescent, so the text over it stays readable.
-  detail: { x: 0.86, y: -0.78, r: 0.72, light: [-0.34, 0.46, -0.82], tilt: 0.3, spin: 0.6, exposure: 1.1, ambient: 0.02, glow: 0.14 },
-  'detail-end': { x: 0, y: -6.86, r: 3.2, light: [0.18, 0.5, -0.42], tilt: 1.12, spin: 1.7, exposure: 1.35, ambient: 0.03, glow: 0 },
-  page: { x: 0.66, y: 0.1, r: 0.3, light: [-0.85, 0.3, 0.42], tilt: 0.14, spin: 0.3, exposure: 1.0, ambient: 0.014, glow: 0.36 },
+  detail: { x: 0.86, y: -0.78, r: 0.72, tilt: 0.3, spin: 0.6 },
+  'detail-end': { x: 0, y: -0.06, r: 0.3, tilt: 0.3, spin: 1.2 },
+  page: { x: 0.66, y: 0.1, r: 0.3, tilt: 0.14, spin: 0.3 },
 };
 
-// Portrait screens: the Moon stays out of the way of the text and is dimmer behind it.
+// Portrait screens: the Moon stays out of the way of the text.
 const tall: Record<PoseKey, Pose> = {
   hero: { ...wide.hero, x: 0, y: 0.34, r: 0.125 },
-  about: { ...wide.about, x: 0.9, y: 0.84, r: 0.17, exposure: 0.5 },
-  skills: { ...wide.skills, x: 1.0, y: -1.3, r: 0.2, exposure: 0.35 },
-  projects: { ...wide.projects, x: 0, y: -1.5, r: 1.1, ambient: 0.018 },
-  contact: { ...wide.contact, x: 0, y: -3.72, r: 1.6 },
+  about: { ...wide.about, x: 0.9, y: 0.84, r: 0.17 },
+  skills: { ...wide.skills, x: 1.0, y: -1.3, r: 0.2 },
+  projects: { ...wide.projects, x: 0, y: -1.5, r: 1.1 },
+  contact: { ...wide.contact, y: 0.02, r: 0.2 },
   detail: { ...wide.detail, x: 0.9, y: -0.9, r: 0.4 },
-  'detail-end': { ...wide['detail-end'], y: -3.72, r: 1.6 },
-  page: { ...wide.page, x: 0.7, y: 0.62, r: 0.16, exposure: 0.8 },
+  'detail-end': { ...wide['detail-end'], y: 0.02, r: 0.2 },
+  page: { ...wide.page, x: 0.7, y: 0.62, r: 0.16 },
 };
 
 export function poseFor(key: PoseKey, aspect: number): Pose {
@@ -58,13 +52,25 @@ export function mixPose(a: Pose, b: Pose, t: number): Pose {
   return {
     x: mix(a.x, b.x, t),
     y: mix(a.y, b.y, t),
-    // Sizes are blended on a log scale, so the growth feels even from 0.17 to 3.2.
+    // Sizes are blended on a log scale, so the growth feels even.
     r: Math.exp(mix(Math.log(a.r), Math.log(b.r), t)),
-    light: [mix(a.light[0], b.light[0], t), mix(a.light[1], b.light[1], t), mix(a.light[2], b.light[2], t)],
     tilt: mix(a.tilt, b.tilt, t),
     spin: mix(a.spin, b.spin, t),
-    exposure: mix(a.exposure, b.exposure, t),
-    ambient: mix(a.ambient, b.ambient, t),
-    glow: mix(a.glow, b.glow, t),
   };
+}
+
+/** The eclipse (0 full Moon … 1 total) for a scroll progress of the page (0 … 1). */
+export function eclipseFor(progress: number): number {
+  // A short calm at the top, so the first screen is a full Moon, then an even advance to the end.
+  const t = Math.min(1, Math.max(0, (progress - 0.015) / 0.975));
+  return t;
+}
+
+/** Direction towards the sun, in view space (+z is the viewer), for an eclipse value.
+ *  The sun swings along one fixed path from in front of the Moon to almost behind it,
+ *  so the shadow always enters from the same side and a thin rim stays lit at the end. */
+export function sunFor(eclipse: number): [number, number, number] {
+  const theta = eclipse * (164 * Math.PI) / 180;
+  const s = Math.sin(theta);
+  return [-s * 0.93, s * 0.37, Math.cos(theta)];
 }

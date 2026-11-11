@@ -22,10 +22,10 @@ export class FlatRenderer implements SpaceRenderer {
     const x = f.x * this.width * 0.5;
     const y = -Math.max(f.y, -1.2) * this.height * 0.5;
     this.img.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) scale(${(r / this.base).toFixed(4)})`;
-    // The picture cannot show phases: when the scene is a night side, it simply dims.
-    const len = Math.hypot(f.light[0], f.light[1], f.light[2]) || 1;
-    const lit = Math.min(1, Math.max(0, 0.55 + (f.light[2] / len) * 0.9));
-    this.img.style.opacity = (Math.min(1, f.exposure) * (1 - far * 0.65) * (0.2 + 0.8 * lit) * f.intro).toFixed(3);
+    // A picture cannot show a terminator: it darkens with the eclipse and a violet corona grows around it.
+    const e = f.eclipse;
+    this.img.style.opacity = ((1 - far * 0.65) * f.intro).toFixed(3);
+    this.img.style.filter = `brightness(${(1 - 0.86 * e).toFixed(3)}) drop-shadow(0 0 ${(6 + 34 * e).toFixed(1)}px rgba(169, 138, 216, ${(0.25 + 0.6 * e).toFixed(2)}))`;
   }
   dispose() {
     this.img.hidden = true;

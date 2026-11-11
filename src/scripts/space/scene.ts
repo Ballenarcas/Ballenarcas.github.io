@@ -45,11 +45,24 @@ uniform vec3 uLight;
 uniform mat3 uRot;
 uniform float uExposure;
 uniform float uAmbient;
+uniform float uRim;
 uniform float uBump;
 uniform float uDetail;
 uniform float uZoom;
 varying vec2 vUv;
 varying vec3 vP;
+
+// The Violet Moon palette, from the darkest maria to the brightest highlands (sRGB, decoded below).
+const vec3 DEEP = vec3(0.145, 0.086, 0.220);   // #251638
+const vec3 ROYAL = vec3(0.396, 0.259, 0.553);  // #65428D
+const vec3 SOFT = vec3(0.663, 0.541, 0.847);   // #A98AD8
+const vec3 SILVER = vec3(0.867, 0.835, 0.914); // #DDD5E9
+vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }
+vec3 violet(float t) {
+  vec3 c = mix(lin(DEEP), lin(ROYAL), smoothstep(0.0, 0.42, t));
+  c = mix(c, lin(SOFT), smoothstep(0.38, 0.78, t));
+  return mix(c, lin(SILVER), smoothstep(0.74, 1.0, t));
+}
 
 float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 float hash(vec3 p) {
@@ -102,14 +115,33 @@ void main() {
   }
 
   vec3 nW = normalize(uRot * n);
-  float flat_ = dot(uRot * p, uLight);
-  float lit = max(dot(nW, uLight), 0.0);
-  // The Moon is a dusty, almost flat disc of light: lift the mid tones instead of a hard Lambert falloff.
-  lit = mix(lit, sqrt(lit), 0.5) * smoothstep(-0.06, 0.14, flat_);
+  vec3 pW = normalize(uRot * p);
 
-  albedo = pow(albedo, vec3(0.92)) * 2.1;
-  vec3 col = albedo * (lit * uExposure * vec3(1.0, 0.985, 0.955) + uAmbient * vec3(0.5, 0.68, 1.0));
-  col = 1.0 - exp(-col * 1.25);
+  // The sun of the eclipse: a soft terminator over the smooth sphere, then the light on the relief.
+  float facing = dot(pW, uLight);
+  float day = smoothstep(-0.05, 0.2, facing);
+  float lit = max(dot(nW, uLight), 0.0);
+  lit = mix(lit, sqrt(lit), 0.55) * day;
+
+  // Craters keep their volume even under a frontal sun: shade the relief against a fixed oblique light.
+  vec3 R = normalize(vec3(-0.62, 0.5, 0.6));
+  float relief = clamp(1.0 + (dot(nW, R) - dot(pW, R)) * 1.7, 0.5, 1.45);
+
+  // Violet as material: the brightness of the map runs through the palette.
+  float h = lum(albedo);
+  vec3 surface = violet(0.16 + 0.78 * smoothstep(0.01, 0.5, h));
+
+  vec3 col = surface * relief * lit * uExposure * 1.05;
+  // Earthshine on the night side, in deep violet, so the dark disc keeps a trace of its craters.
+  col += surface * relief * uAmbient * (1.0 - day);
+
+  // Fresnel rim: strongest on the edge that faces the sun, and stronger as the eclipse deepens.
+  float fres = pow(1.0 - clamp(pW.z, 0.0, 1.0), 5.0);
+  vec2 sunXY = uLight.xy;
+  float side = length(sunXY) > 0.05 ? clamp(dot(normalize(pW.xy + 1e-5), normalize(sunXY)), 0.0, 1.0) : 0.5;
+  col += lin(SOFT) * fres * uRim * (0.15 + 0.85 * side * side);
+
+  col = 1.0 - exp(-col * 1.3);
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }`;
@@ -139,7 +171,7 @@ void main() {
   float d = length(gl_PointCoord - 0.5) * 2.0;
   float a = smoothstep(1.0, 0.0, d);
   a *= a;
-  vec3 col = mix(vec3(0.74, 0.84, 1.0), vec3(1.0, 0.95, 0.88), vWarm);
+  vec3 col = mix(vec3(0.8, 0.74, 1.0), vec3(1.0, 0.97, 1.0), vWarm);
   gl_FragColor = vec4(col, a * vAlpha);
 }`;
 
@@ -147,13 +179,30 @@ const GLOW_VERT = /* glsl */ `
 varying vec2 vUv;
 void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
+// The corona: a violet light around the silhouette, pulled towards the sun and broken into soft rays.
 const GLOW_FRAG = /* glsl */ `
 uniform float uStrength;
+uniform float uEclipse;
+uniform vec2 uSun;
+uniform float uTime;
 varying vec2 vUv;
+const float SPAN = 2.6; // half the plane, in Moon radii
 void main() {
-  float d = length(vUv - 0.5) * 2.0;
-  float a = pow(smoothstep(1.0, 0.5, d), 2.4) * uStrength;
-  gl_FragColor = vec4(vec3(0.6, 0.74, 1.0), a);
+  vec2 q = (vUv - 0.5) * 2.0 * SPAN;
+  float d = length(q);
+  if (d < 0.985) discard;
+  float a = atan(q.y, q.x);
+  float x = d - 1.0;
+  float width = mix(0.22, 0.55, uEclipse);
+  float body = exp(-x / width);
+  float rays = 0.72 + 0.14 * sin(a * 7.0 + 1.3 + uTime * 0.05) + 0.09 * sin(a * 13.0 - uTime * 0.08) + 0.05 * sin(a * 29.0 + 2.0);
+  float toward = length(uSun) > 0.05 ? max(dot(normalize(q), normalize(uSun)), 0.0) : 0.5;
+  float bias = mix(1.0, 0.2 + 1.4 * pow(toward, 1.5), uEclipse);
+  float ring = exp(-pow(x / 0.012, 2.0)) * uEclipse * (0.12 + 0.88 * toward * toward);
+  float fade = smoothstep(SPAN, SPAN * 0.7, d);
+  float alpha = (body * rays * bias + ring * 0.9) * fade * uStrength;
+  vec3 col = mix(vec3(0.42, 0.22, 0.72), vec3(0.74, 0.6, 1.0), clamp(body * body + ring, 0.0, 1.0));
+  gl_FragColor = vec4(col, alpha);
 }`;
 
 const ease = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -190,7 +239,7 @@ export class MoonScene implements SpaceRenderer {
     this.stars = this.makeStars(quality === 'high' ? 1500 : 650);
     this.glow = new Mesh(
       new PlaneGeometry(1, 1),
-      new ShaderMaterial({ vertexShader: GLOW_VERT, fragmentShader: GLOW_FRAG, uniforms: { uStrength: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false, blending: AdditiveBlending }),
+      new ShaderMaterial({ vertexShader: GLOW_VERT, fragmentShader: GLOW_FRAG, uniforms: { uStrength: { value: 0 }, uEclipse: { value: 0 }, uSun: { value: new Vector2() }, uTime: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false, blending: AdditiveBlending }),
     );
     this.moon = new Mesh(
       new SphereGeometry(1, quality === 'high' ? 128 : 72, quality === 'high' ? 96 : 54),
@@ -204,6 +253,7 @@ export class MoonScene implements SpaceRenderer {
           uRot: { value: new Matrix3() },
           uExposure: { value: 0 },
           uAmbient: { value: 0 },
+          uRim: { value: 0 },
           uBump: { value: 0.03 },
           uDetail: { value: 0 },
           uZoom: { value: 0 },
@@ -296,18 +346,24 @@ export class MoonScene implements SpaceRenderer {
 
     const u = this.moon.material.uniforms;
     (u.uRot.value as Matrix3).setFromMatrix4(this.rotation);
-    this.light.set(f.light[0] + f.pointer[0] * 0.05, f.light[1] + f.pointer[1] * 0.05, f.light[2]).normalize();
+    this.light.set(f.light[0], f.light[1], f.light[2]).normalize();
     (u.uLight.value as Vector3).copy(this.light);
-    u.uExposure.value = f.exposure * intro;
-    u.uAmbient.value = f.ambient * intro;
+    const e = f.eclipse;
+    u.uExposure.value = intro;
+    u.uAmbient.value = 0.022 * (1 - 0.55 * e) * intro;
+    u.uRim.value = (0.12 + 0.9 * e * e) * intro;
     // Fine grain only matters once the Moon is large on screen.
     const zoom = Math.min(1, Math.max(0, (f.r - 0.45) / 0.9));
     u.uZoom.value = zoom;
     u.uDetail.value = this.detail * zoom;
 
-    this.glow.position.set(x + this.light.x * radius * 0.06, y + this.light.y * radius * 0.06, -1);
-    this.glow.scale.setScalar(radius * 3.6);
-    this.glow.material.uniforms.uStrength.value = f.glow * 0.34 * intro * Math.max(0, this.light.z * 0.6 + 0.5);
+    const g = this.glow.material.uniforms;
+    this.glow.position.set(x, y, -1);
+    this.glow.scale.setScalar(radius * 2 * 2.6);
+    g.uStrength.value = (0.12 + 0.85 * Math.pow(e, 1.4)) * intro;
+    g.uEclipse.value = e;
+    (g.uSun.value as Vector2).set(this.light.x, this.light.y);
+    g.uTime.value = f.time;
 
     const s = this.stars.material.uniforms;
     (s.uShift.value as Vector2).set(f.pointer[0] * -0.006, f.screens * 0.05 + f.pointer[1] * -0.006);

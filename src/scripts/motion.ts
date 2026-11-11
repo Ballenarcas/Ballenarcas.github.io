@@ -3,7 +3,7 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
-import { SpaceController, type Frame } from './space/controller';
+import { SpaceController } from './space/controller';
 import { FlatRenderer } from './space/flat';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -37,7 +37,6 @@ function space() {
   const canvas = root.querySelector('canvas')!;
   const picture = root.querySelector<HTMLElement>('.moon2d')!;
   controller = new SpaceController({ animate: true });
-  controller.onFrame = telemetry;
   const flat = () => { root.classList.add('is-flat'); controller!.attach(new FlatRenderer(picture)); };
   const level = tier();
   if (level === 'flat') flat();
@@ -55,16 +54,6 @@ function space() {
   (window as unknown as { __space?: SpaceController }).__space = controller;
 }
 
-// Distance to the surface, read out as the journey advances.
-let readout: HTMLElement | null = null;
-let lastKm = -1;
-function telemetry(frame: Frame) {
-  if (!readout) return;
-  const km = frame.progress > 0.992 ? 0 : Math.round((384400 * Math.pow(1 - frame.progress, 3)) / 10) * 10;
-  if (km === lastKm) return;
-  lastKm = km;
-  readout.textContent = km === 0 ? readout.dataset.done! : `${km.toLocaleString(document.documentElement.lang)} km`;
-}
 
 function reveals() {
   const items = document.querySelectorAll<HTMLElement>('[data-r]');
@@ -188,8 +177,6 @@ function smooth() {
 
 function init() {
   document.documentElement.classList.add('ready');
-  readout = document.querySelector<HTMLElement>('[data-telemetry]');
-  lastKm = -1;
   space();
   reveals();
   rail();

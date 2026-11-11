@@ -1,6 +1,6 @@
 // Turns the scroll position into the state of the space scene, once per frame.
 // It knows nothing about WebGL: a renderer (3D or the flat fallback) draws the state it is given.
-import { mixPose, poseFor, type Pose, type PoseKey } from './poses';
+import { eclipseFor, mixPose, poseFor, sunFor, type Pose, type PoseKey } from './poses';
 
 export interface Frame extends Pose {
   time: number;
@@ -10,6 +10,10 @@ export interface Frame extends Pose {
   pointer: [number, number];
   /** How far the page has been scrolled, 0..1. */
   progress: number;
+  /** 0 full violet Moon … 1 total eclipse. Follows the scroll of the whole page, smoothed. */
+  eclipse: number;
+  /** Direction towards the sun for that eclipse, in view space. */
+  light: [number, number, number];
   /** Scroll offset in screens, for the parallax of the stars. */
   screens: number;
 }
@@ -31,6 +35,7 @@ export class SpaceController {
   private renderer: SpaceRenderer | null = null;
   private anchors: Anchor[] = [];
   private current: Pose | null = null;
+  private eclipse = -1;
   private pointer: [number, number] = [0, 0];
   private pointerTarget: [number, number] = [0, 0];
   private raf = 0;
@@ -124,24 +129,33 @@ export class SpaceController {
     const y = scrollY;
     // Nothing moved: a still picture needs no new frame, a live one gets by on half of them.
     const pointerMoving = Math.abs(this.pointerTarget[0] - this.pointer[0]) + Math.abs(this.pointerTarget[1] - this.pointer[1]) > 0.002;
-    const busy = y !== this.lastY || pointerMoving || now - this.introStart < 3200 || this.follow < 7;
+    const settling = Math.abs(eclipseFor(clamp01(y / this.maxScroll)) - this.eclipse) > 1e-4;
+    const busy = y !== this.lastY || pointerMoving || settling || now - this.introStart < 3200 || this.follow < 7;
     this.lastY = y;
     this.idle = busy ? 0 : this.idle + 1;
     if (this.idle > 30 && this.renderer && (!this.renderer.alive || this.idle % 2 === 1)) return;
     const target = this.target(y);
-    if (!this.current || !this.animate) this.current = target;
+    const progress = clamp01(y / this.maxScroll);
+    const eclipseTarget = eclipseFor(progress);
+    if (!this.current || !this.animate || this.eclipse < 0) { this.current = target; this.eclipse = eclipseTarget; }
     else {
       this.follow = Math.min(7, this.follow + dt * 2.4);
-      this.current = mixPose(this.current, target, 1 - Math.exp(-dt * this.follow));
+      const k = 1 - Math.exp(-dt * this.follow);
+      this.current = mixPose(this.current, target, k);
+      // The same easing as the pose: one clock for placement and light.
+      this.eclipse += (eclipseTarget - this.eclipse) * k;
+      if (Math.abs(eclipseTarget - this.eclipse) < 1e-4) this.eclipse = eclipseTarget;
     }
-    const k = 1 - Math.exp(-dt * 3);
-    this.pointer = [this.pointer[0] + (this.pointerTarget[0] - this.pointer[0]) * k, this.pointer[1] + (this.pointerTarget[1] - this.pointer[1]) * k];
+    const kp = 1 - Math.exp(-dt * 3);
+    this.pointer = [this.pointer[0] + (this.pointerTarget[0] - this.pointer[0]) * kp, this.pointer[1] + (this.pointerTarget[1] - this.pointer[1]) * kp];
     const frame: Frame = {
       ...this.current,
       time: now / 1000,
       intro: this.animate ? clamp01((now - this.introStart) / 2600) : 1,
       pointer: this.pointer,
-      progress: clamp01(y / this.maxScroll),
+      progress,
+      eclipse: this.eclipse,
+      light: sunFor(this.eclipse),
       screens: y / this.height,
     };
     this.renderer?.draw(frame);
