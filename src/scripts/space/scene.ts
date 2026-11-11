@@ -47,6 +47,7 @@ uniform float uExposure;
 uniform float uAmbient;
 uniform float uBump;
 uniform float uDetail;
+uniform float uZoom;
 varying vec2 vUv;
 varying vec3 vP;
 
@@ -87,7 +88,7 @@ void main() {
   float cosLat = max(sqrt(max(1.0 - p.y * p.y, 0.0)), 0.2);
   vec2 slope = vec2((hR - hL) / (2.0 * e.x) / (6.2832 * cosLat), (hU - hD) / (2.0 * e.y) / 3.1416);
   // Up close the photograph runs out of detail: lean less on it and let the fine grain take over.
-  vec3 n = p - uBump * (1.0 - 0.5 * uDetail) * (slope.x * T + slope.y * B);
+  vec3 n = p - uBump * (1.0 - 0.55 * uZoom) * (slope.x * T + slope.y * B);
 
   vec3 albedo = texture2D(uMap, vUv).rgb;
   if (uDetail > 0.001) {
@@ -204,6 +205,7 @@ export class MoonScene implements SpaceRenderer {
           uAmbient: { value: 0 },
           uBump: { value: 0.03 },
           uDetail: { value: 0 },
+          uZoom: { value: 0 },
         },
       }),
     );
@@ -298,7 +300,9 @@ export class MoonScene implements SpaceRenderer {
     u.uExposure.value = f.exposure * intro;
     u.uAmbient.value = f.ambient * intro;
     // Fine grain only matters once the Moon is large on screen.
-    u.uDetail.value = this.detail * Math.min(1, Math.max(0, (f.r - 0.45) / 0.9));
+    const zoom = Math.min(1, Math.max(0, (f.r - 0.45) / 0.9));
+    u.uZoom.value = zoom;
+    u.uDetail.value = this.detail * zoom;
 
     this.glow.position.set(x + this.light.x * radius * 0.06, y + this.light.y * radius * 0.06, -1);
     this.glow.scale.setScalar(radius * 3.6);

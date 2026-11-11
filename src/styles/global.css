@@ -94,6 +94,7 @@ a { color: inherit; text-decoration: none; }
 .space.is-flat .moon2d { display: block; }
 /* Reduced motion or no script: a still Moon over the first screen, and the sky scrolls away with it. */
 .space.is-static, html:not(.js) .space { position: absolute; height: 100svh; }
+.space.is-static ~ .page .telemetry { display: none; }
 .space.is-static .moon2d, html:not(.js) .moon2d { display: block; top: 37%; width: 37svh; height: 37svh; margin: -18.5svh 0 0 -18.5svh; }
 .grain { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0.05; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
@@ -139,10 +140,10 @@ a { color: inherit; text-decoration: none; }
 .hero h1 span { display: inline-block; }
 .js .hero h1 span { animation: letter 1.5s var(--ease) both; animation-delay: calc(var(--i) * 55ms + 350ms); }
 @keyframes letter { from { opacity: 0; transform: translateY(0.35em); } to { opacity: 1; transform: none; } }
-.js .hero .rise { animation: rise 1.4s var(--ease) both; animation-delay: var(--t, 1.3s); }
+.js .hero .rise { animation: rise 1.4s var(--ease) backwards; animation-delay: var(--t, 1.3s); }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .hero .lead { max-width: 30ch; }
-.scroll-cue { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); display: grid; justify-items: center; gap: 10px; white-space: nowrap; }
+.scroll-cue { position: absolute; left: 0; right: 0; bottom: 26px; width: max-content; margin-inline: auto; display: grid; justify-items: center; gap: 10px; white-space: nowrap; }
 .scroll-cue i { display: block; width: 1px; height: 34px; background: linear-gradient(var(--line-strong), transparent); position: relative; overflow: hidden; }
 .scroll-cue i::after { content: ''; position: absolute; left: 0; top: -40%; width: 1px; height: 40%; background: var(--ink); animation: cue 2.4s var(--ease) infinite; }
 @keyframes cue { to { top: 110%; } }

@@ -200,7 +200,9 @@ function init() {
 }
 
 document.addEventListener('astro:page-load', init);
-document.addEventListener('astro:before-swap', () => {
+document.addEventListener('astro:before-swap', (event) => {
   cleanups.forEach((fn) => fn());
   cleanups = [];
+  // The incoming page must know that scripts are running, or it shows its no-script fallbacks.
+  (event as Event & { newDocument: Document }).newDocument.documentElement.classList.add('js', 'ready');
 });

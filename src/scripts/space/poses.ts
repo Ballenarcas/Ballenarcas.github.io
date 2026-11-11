@@ -30,8 +30,9 @@ const wide: Record<PoseKey, Pose> = {
   // 05 Touchdown: the horizon at sunrise.
   contact: { x: 0, y: -6.86, r: 3.2, light: [0.18, 0.5, -0.42], tilt: 1.12, spin: 1.7, exposure: 1.35, ambient: 0.03, glow: 0 },
   // Inner pages.
-  detail: { x: 0.78, y: -0.5, r: 0.62, light: [-0.8, 0.5, 0.1], tilt: 0.3, spin: 0.6, exposure: 0.95, ambient: 0.02, glow: 0.22 },
-  'detail-end': { x: 0.1, y: -3.3, r: 1.7, light: [0.1, 0.55, -0.45], tilt: 0.9, spin: 1.2, exposure: 1.2, ambient: 0.03, glow: 0 },
+  // Inner pages: a dark Moon with a thin crescent, so the text over it stays readable.
+  detail: { x: 0.86, y: -0.78, r: 0.72, light: [-0.34, 0.46, -0.82], tilt: 0.3, spin: 0.6, exposure: 1.1, ambient: 0.02, glow: 0.14 },
+  'detail-end': { x: 0, y: -6.86, r: 3.2, light: [0.18, 0.5, -0.42], tilt: 1.12, spin: 1.7, exposure: 1.35, ambient: 0.03, glow: 0 },
   page: { x: 0.66, y: 0.1, r: 0.3, light: [-0.85, 0.3, 0.42], tilt: 0.14, spin: 0.3, exposure: 1.0, ambient: 0.014, glow: 0.36 },
 };
 
@@ -39,11 +40,11 @@ const wide: Record<PoseKey, Pose> = {
 const tall: Record<PoseKey, Pose> = {
   hero: { ...wide.hero, x: 0, y: 0.34, r: 0.125 },
   about: { ...wide.about, x: 0.62, y: 0.66, r: 0.2, exposure: 0.85 },
-  skills: { ...wide.skills, x: 0.95, y: -0.9, r: 0.3, exposure: 0.7 },
+  skills: { ...wide.skills, x: 0.95, y: -1.06, r: 0.34, exposure: 0.55 },
   projects: { ...wide.projects, x: 0, y: -1.5, r: 1.1, ambient: 0.018 },
   contact: { ...wide.contact, x: 0, y: -3.72, r: 1.6 },
-  detail: { ...wide.detail, x: 0.9, y: 0.7, r: 0.2, exposure: 0.6 },
-  'detail-end': { ...wide['detail-end'], y: -3.9, r: 1.6 },
+  detail: { ...wide.detail, x: 0.9, y: -0.9, r: 0.4 },
+  'detail-end': { ...wide['detail-end'], y: -3.72, r: 1.6 },
   page: { ...wide.page, x: 0.7, y: 0.62, r: 0.16, exposure: 0.8 },
 };
 

@@ -51,7 +51,7 @@ const en = lang === 'en' ? canonical : alt;
   <body>
     <a class="skip" href="#main">{t(lang, 'nav.skip')}</a>
     <!-- The space scene. It is kept alive between pages, so the Moon travels instead of reloading. -->
-    <div class="space" id="space" aria-hidden="true" transition:persist>
+    <div class="space" id="space" aria-hidden="true" transition:persist="space">
       <canvas></canvas>
       <img class="moon2d" src="/textures/moon-still.webp" alt="" width="1024" height="1024" decoding="async" />
     </div>
