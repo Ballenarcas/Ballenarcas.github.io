@@ -1,44 +1,44 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Nav from '../../components/Nav.astro';
-import About from '../../components/About.astro';
-import Footer from '../../components/Footer.astro';
-import { author, languages, t, type Lang } from '../../i18n/ui';
-import { projectsFor } from '../../lib';
+import Contact from '../../components/Contact.astro';
+import { languages, t, type Lang } from '../../i18n/ui';
+import { projectsFor, slugOf } from '../../lib';
 
 export const getStaticPaths = () => languages.map((lang) => ({ params: { lang } }));
 const lang = Astro.params.lang as Lang;
 const projects = await projectsFor(lang);
 const copy = {
   es: {
-    title: 'Sobre mí',
+    title: 'Cómo trabajo',
     lead: 'Soy Ángel, estudiante de Ingeniería del Software. Me gusta construir software que alguien use de verdad.',
-    how: 'Cómo trabajo',
+    how: 'Mi forma de trabajar',
     paragraphs: [
       'Empiezo por el problema y por la persona que lo tiene. Antes de escribir código quiero poder explicar en una frase qué resuelve la aplicación y para quién.',
       'Separo el código en capas con contratos claros: rutas, lógica de negocio, datos e interfaz. Así cada parte se puede cambiar, probar y entender sin leer las demás.',
       'Uso herramientas de IA para desarrollar más rápido y también dentro de los productos, siempre con límites escritos: reglas que deciden los números, filtros que revisan el texto y una alternativa cuando el proveedor falla.',
     ],
-    work: 'Proyectos',
+    work: 'Expediciones',
   },
   en: {
-    title: 'About me',
+    title: 'How I work',
     lead: 'I am Ángel, a software engineering student. I like building software that someone actually uses.',
-    how: 'How I work',
+    how: 'The way I work',
     paragraphs: [
       'I start from the problem and the person who has it. Before writing code I want to be able to say in one sentence what the app solves and for whom.',
       'I split the code into layers with clear contracts: routes, business logic, data and interface. Each part can then be changed, tested and understood without reading the others.',
       'I use AI tools to build faster and inside the products too, always within written limits: rules that decide the numbers, filters that check the text, and a fallback when the provider fails.',
     ],
-    work: 'Projects',
+    work: 'Expeditions',
   },
 }[lang];
 ---
 <Base lang={lang} title={copy.title} description={copy.lead}>
-  <header class="page-head" id="top" style="position:relative">
-    <Nav lang={lang} />
-    <h1 class="mon"><span class="mask"><span>{copy.title}</span></span></h1>
-    <p class="statement" data-r style="--d:3;max-width:30ch">{copy.lead}</p>
+  <Nav lang={lang} />
+  <header class="page-head" id="top" data-pose="page">
+    <p class="hud label" data-r>{t(lang, 'nav.about')}</p>
+    <h1 class="display" data-r style="--d:1">{copy.title}</h1>
+    <p class="lead" data-r style="--d:2">{copy.lead}</p>
   </header>
   <main id="main">
     <section class="pbody">
@@ -47,11 +47,11 @@ const copy = {
       <h2 data-r>{copy.work}</h2>
       <ul class="prose" data-r style="--d:1">
         {projects.map((p) => (
-          <li><a href={`/${lang}/projects/${p.id.split('/')[1]}/`}><strong>{p.data.title}</strong></a>: {p.data.summary}</li>
+          <li><a href={`/${lang}/projects/${slugOf(p)}/`}>{p.data.title}</a>: {p.data.summary}</li>
         ))}
       </ul>
     </section>
-    <About lang={lang} link={false} />
+    <div style="height: var(--gap)"></div>
   </main>
-  <Footer lang={lang} />
+  <Contact lang={lang} pose="detail-end" />
 </Base>

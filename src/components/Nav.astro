@@ -3,13 +3,28 @@ import { author, otherLangPath, t, type Lang } from '../i18n/ui';
 interface Props { lang: Lang; home?: boolean }
 const { lang, home = false } = Astro.props;
 const base = `/${lang}/`;
+const to = (hash: string) => (home ? hash : `${base}${hash}`);
+const links = [
+  { href: to('#about'), label: t(lang, 'nav.about') },
+  { href: to('#skills'), label: t(lang, 'nav.skills') },
+  { href: to('#expeditions'), label: t(lang, 'nav.work') },
+  { href: '#contact', label: t(lang, 'nav.contact') },
+];
+const other = lang === 'es' ? 'en' : 'es';
 ---
-<nav class="nav" aria-label={lang === 'es' ? 'Principal' : 'Main'}>
-  {!home && <a href={base}><strong>{author.name}</strong></a>}
-  <ul>
-    <li><a href={`${base}#work`}>{t(lang, 'nav.work')}</a></li>
-    <li><a href={`${base}about/`}>{t(lang, 'nav.about')}</a></li>
-    <li><a href="#contact">{t(lang, 'nav.contact')}</a></li>
-    <li><a href={otherLangPath(Astro.url.pathname, lang)} hreflang={lang === 'es' ? 'en' : 'es'} lang={lang === 'es' ? 'en' : 'es'}>{t(lang, 'nav.switch')}</a></li>
-  </ul>
-</nav>
+<header class="nav hud">
+  <a class="nav-mark" href={home ? '#top' : base}>{author.name}</a>
+  <nav aria-label={lang === 'es' ? 'Principal' : 'Main'}>
+    <ul class="nav-links">
+      {links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+      <li><a class="nav-lang" href={otherLangPath(Astro.url.pathname, lang)} hreflang={other} lang={other} aria-label={t(lang, 'nav.switchLabel')}>{t(lang, 'nav.switch')}</a></li>
+    </ul>
+    <details class="nav-menu" data-menu>
+      <summary>{t(lang, 'nav.menu')}</summary>
+      <ul>
+        {links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+        <li><a href={otherLangPath(Astro.url.pathname, lang)} hreflang={other} lang={other}>{lang === 'es' ? 'English' : 'Español'}</a></li>
+      </ul>
+    </details>
+  </nav>
+</header>

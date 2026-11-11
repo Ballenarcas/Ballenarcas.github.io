@@ -1,0 +1,5 @@
+---
+interface Props { n: number; text: string }
+const { n, text } = Astro.props;
+---
+<p class="hud label" data-r><b>{String(n).padStart(2, '0')}</b>{text}</p>

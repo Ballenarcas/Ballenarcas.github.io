@@ -1,0 +1,56 @@
+---
+// Each group of technologies is drawn as a constellation: one star per technology, joined by a line.
+import * as icons from 'simple-icons';
+import { skillGroups } from '../data/skills';
+import { t, type Lang } from '../i18n/ui';
+import SceneLabel from './SceneLabel.astro';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+
+// Star charts: where the stars of a constellation sit, in percent of its box. A group uses the first
+// points of its chart, so a technology can be added to the data without touching this file.
+const base: Array<[number, number][]> = [
+  [[12, 18], [44, 10], [80, 22], [64, 56], [28, 50], [14, 82], [50, 84], [86, 82]],
+  [[10, 50], [36, 14], [70, 12], [88, 48], [58, 48], [30, 82], [70, 84], [8, 16]],
+];
+const flipX = (c: [number, number][]) => c.map(([x, y]) => [100 - x, y] as [number, number]);
+const flipY = (c: [number, number][]) => c.map(([x, y]) => [x, 94 - y] as [number, number]);
+const charts = [base[0], flipX(base[1]), flipY(base[0]), base[1], flipX(base[0]), flipY(flipX(base[1]))];
+const iconPath = (name?: string) => (name ? (icons as unknown as Record<string, { path: string } | undefined>)[name]?.path : undefined);
+---
+<section class="scene skills" id="skills" data-pose="skills">
+  <div class="scene-head">
+    <SceneLabel n={3} text={t(lang, 'nav.skills')} />
+    <h2 class="display" data-r style="--d:1">{t(lang, 'skills.title')}</h2>
+    <p class="lead" data-r style="--d:2">{t(lang, 'skills.statement')}</p>
+  </div>
+  <div class="sky">
+    {skillGroups.map((group, g) => {
+      const chart = charts[g % charts.length];
+      const points = group.items.map((_, i) => chart[i % chart.length]);
+      return (
+        <div class="constellation" data-r data-lean={6 + (g % 3) * 5}>
+          <h3 class="hud">{group.name[lang]}</h3>
+          <div class="c-map">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <polyline pathLength="1" points={points.map(([x, y]) => `${x},${y}`).join(' ')} />
+            </svg>
+            <ul>
+              {group.items.map((item, i) => {
+                const path = iconPath(item.icon);
+                return (
+                  <li class="c-node" style={`left:${points[i][0]}%;top:${points[i][1]}%;--n:${i}`}>
+                    <i class={`star${path ? '' : ' plain'}`}>
+                      {path && <svg viewBox="0 0 24 24" aria-hidden="true"><path d={path} /></svg>}
+                    </i>
+                    <span>{item.name}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</section>

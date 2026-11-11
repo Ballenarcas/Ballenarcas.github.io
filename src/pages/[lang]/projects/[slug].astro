@@ -3,9 +3,11 @@ import { getCollection, render } from 'astro:content';
 import { Image, getImage } from 'astro:assets';
 import Base from '../../../layouts/Base.astro';
 import Nav from '../../../components/Nav.astro';
-import Footer from '../../../components/Footer.astro';
+import Contact from '../../../components/Contact.astro';
+import Planet from '../../../components/Planet.astro';
+import StatusBadge from '../../../components/StatusBadge.astro';
 import { author, t, type Lang } from '../../../i18n/ui';
-import { projectsFor } from '../../../lib';
+import { projectsFor, slugOf } from '../../../lib';
 
 export async function getStaticPaths() {
   const all = await getCollection('projects', (p) => !(import.meta.env.PROD && p.data.draft));
@@ -21,7 +23,6 @@ const d = entry.data;
 const { Content } = await render(entry);
 const list = await projectsFor(lang);
 const next = list[(list.findIndex((p) => p.id === entry.id) + 1) % list.length];
-const nextSlug = next.id.split('/')[1];
 const portrait = d.videoOrientation === 'portrait';
 const poster = d.videoPoster ? await getImage({ src: d.videoPoster, width: portrait ? 720 : 1280, format: 'webp' }) : undefined;
 const jsonLd = {
@@ -34,35 +35,47 @@ const jsonLd = {
   inLanguage: lang,
 };
 ---
-<Base lang={lang} title={d.title} description={d.summary} themeColor={d.ground} jsonLd={jsonLd}>
-  <header class={`phead field ${portrait ? 'portrait' : 'landscape'}`} id="top" style={`--g:${d.ground};--i:${d.ink}`}>
-    <Nav lang={lang} />
+<Base lang={lang} title={d.title} description={d.summary} jsonLd={jsonLd}>
+  <Nav lang={lang} />
+  <header class={`phead ${portrait ? 'portrait' : 'landscape'}`} id="top" data-pose="detail" style={`--accent:${d.accent}`}>
     <div class="phead-text">
-      <h1 class="mon"><span class="mask"><span transition:name={`title-${slug}`}>{d.title}</span></span></h1>
-      <p class="statement" data-r style="--d:3">{d.tagline}</p>
-      <p data-r style="--d:4;max-width:46ch">{d.summary}</p>
-      <dl class="phead-facts" data-r style="--d:5">
-        {d.role && <div><dt>{t(lang, 'project.role')}</dt><dd>{d.role}</dd></div>}
-        <div><dt>{d.context ? t(lang, 'project.context') : t(lang, 'project.year')}</dt><dd>{[d.context, d.year].filter(Boolean).join(' · ')}</dd></div>
-        <div class="wide"><dt>{t(lang, 'project.stack')}</dt><dd>{d.stack.join(', ')}</dd></div>
+      <p class="hud" data-r><a class="link" href={`/${lang}/#expeditions`}>← {t(lang, 'project.back')}</a></p>
+      <div class="phead-title">
+        <Planet accent={d.accent} name={`planet-${slug}`} />
+        <h1 transition:name={`title-${slug}`}>{d.title}</h1>
+      </div>
+      <p class="lead" data-r style="--d:1">{d.tagline}</p>
+      <p data-r style="--d:2;max-width:48ch">{d.summary}</p>
+      <dl class="facts" data-r style="--d:3">
+        <div><dt class="hud">{t(lang, 'project.status')}</dt><dd><StatusBadge lang={lang} status={d.status} /></dd></div>
+        <div><dt class="hud">{d.context ? t(lang, 'project.context') : t(lang, 'project.year')}</dt><dd>{[d.context, d.year].filter(Boolean).join(' · ')}</dd></div>
+        {d.role && <div class="wide"><dt class="hud">{t(lang, 'project.role')}</dt><dd>{d.role}</dd></div>}
+        <div class="wide"><dt class="hud">{t(lang, 'project.stack')}</dt><dd>{d.stack.join(' · ')}</dd></div>
       </dl>
-      <p data-r style="--d:6"><a class="btn" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a></p>
+      <p class="exp-links" data-r style="--d:4">
+        <a class="btn" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>
+        {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
+      </p>
     </div>
-    {d.video && (
-      <div class="film-box" data-r style="--d:2">
+    {d.video ? (
+      <div data-r style="--d:2">
         <figure class={`film ${portrait ? 'portrait' : 'landscape'}`}>
           <video src={d.video} poster={poster?.src} width={portrait ? 720 : 1280} height={portrait ? 1280 : d.videoPoster ? Math.round((1280 * d.videoPoster.height) / d.videoPoster.width) : 720}
             controls muted playsinline preload="none" aria-label={`${t(lang, 'project.film')}: ${d.title}`} data-autoplay></video>
         </figure>
-        {d.videoNote && <p class="film-note soft">{d.videoNote}</p>}
+        {d.videoNote && <p class="film-note hud">{d.videoNote}</p>}
       </div>
+    ) : (
+      <figure class={`film ${portrait ? 'portrait' : 'landscape'}`} data-r style="--d:2">
+        <Image src={d.cover} alt={d.coverAlt} widths={portrait ? [360, 560, 780] : [640, 1024, 1680]} sizes="(min-width: 1024px) 55vw, 100vw" />
+      </figure>
     )}
   </header>
   <main id="main">
     <article class="pbody"><Content /></article>
     {d.gallery.length > 0 && (
       <section class={`gallery ${portrait ? 'portrait' : 'landscape'}`}>
-        <h2 class="head" data-r>{t(lang, 'project.gallery')}</h2>
+        <h2 class="hud label" data-r>{t(lang, 'project.gallery')}</h2>
         {d.gallery.map((g, i) => (
           <figure data-r style={`--d:${i % 4}`}>
             <Image src={g.src} alt={g.alt} widths={portrait ? [360, 560, 780] : [640, 1024, 1680]}
@@ -71,10 +84,10 @@ const jsonLd = {
         ))}
       </section>
     )}
-    <a class="next field" href={`/${lang}/projects/${nextSlug}/`} style={`--g:${next.data.ground};--i:${next.data.ink}`}>
-      <span class="head">{t(lang, 'project.next')}</span>
-      <span class="mon">{next.data.title}</span>
+    <a class="next" href={`/${lang}/projects/${slugOf(next)}/`} style={`--accent:${next.data.accent}`}>
+      <span class="hud">{t(lang, 'project.next')}</span>
+      <span class="next-name"><Planet accent={next.data.accent} />{next.data.title}</span>
     </a>
   </main>
-  <Footer lang={lang} />
+  <Contact lang={lang} pose="detail-end" />
 </Base>

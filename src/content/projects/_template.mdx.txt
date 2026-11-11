@@ -1,22 +1,26 @@
 ---
 title: ""
 tagline: ""
-summary: ""            # max. 220 characters
-role: ""               # optional
-context: ""            # optional: "Hackathon", "University"...
+summary: ""                  # max. 220 characters
+status: "in-progress"        # completed | in-progress | archived
+featured: true               # true: full expedition. false: one line under "More expeditions"
+categories: []               # e.g. ["React", "Python"]. They become the filters by themselves
+date: 2026-01-01             # last update, used when sorting by date
+order: 10                    # position when sorting by priority (lower first)
+role: ""                     # optional
+context: ""                  # optional: "Hackathon", "University"...
 year: 2026
 stack: []
 repo: "https://github.com/Ballenarcas/"
-ground: "#111111"      # the project's background colour
-ink: "#F5F5F3"         # text colour on that background (check the contrast)
+# demo: "https://..."        # optional
+accent: "#9CC0FF"            # colour of the project's planet
 cover: "../../../assets/projects/<slug>/cover.jpg"
 coverAlt: ""
-gallery: []            # - { src: "../../../assets/projects/<slug>/one.jpg", alt: "" }
-# loop: "/videos/<slug>-loop.mp4"     # optional short silent clip
+gallery: []                  # - { src: "../../../assets/projects/<slug>/one.jpg", alt: "" }
+# loop: "/videos/<slug>-loop.mp4"     # optional short silent clip (add <slug>-loop.jpg as its poster)
 # video: "/videos/<slug>.mp4"         # optional full film
 # videoPoster: "../../../assets/projects/<slug>/poster.jpg"
 # videoOrientation: "landscape"       # or "portrait"
-order: 10
 draft: false
 ---
 

@@ -1,0 +1,22 @@
+---
+import { author, t, type Lang } from '../i18n/ui';
+import SceneLabel from './SceneLabel.astro';
+interface Props { lang: Lang; pose?: string; n?: number }
+const { lang, pose = 'contact', n } = Astro.props;
+---
+<footer class="contact" id="contact" data-pose={pose}>
+  <div class="contact-main">
+    {n ? <SceneLabel n={n} text={t(lang, 'nav.contact')} /> : <p class="hud label" data-r>{t(lang, 'nav.contact')}</p>}
+    <h2 class="display" data-r style="--d:1">{t(lang, 'contact.title')}</h2>
+    <p class="lead" data-r style="--d:2">{t(lang, 'contact.sentence')}</p>
+    <a class="mail" href={`mailto:${author.email}`} data-r style="--d:3">{author.email}</a>
+    <ul class="contact-links" data-r style="--d:4">
+      <li><a class="link ext" href={author.github} rel="me noopener">GitHub</a></li>
+      <li><a class="link ext" href={author.linkedin} rel="me noopener">LinkedIn</a></li>
+    </ul>
+  </div>
+  <div class="contact-foot hud">
+    <p>© {new Date().getFullYear()} {author.name}. {t(lang, 'footer.credit')}</p>
+    <a href="#top">{t(lang, 'footer.top')} ↑</a>
+  </div>
+</footer>

@@ -1,5 +1,7 @@
 ---
 import '@fontsource-variable/inter/opsz.css';
+import '@fontsource-variable/sora';
+import '@fontsource-variable/jetbrains-mono';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
 import { author, otherLangPath, t, type Lang } from '../i18n/ui';
@@ -9,10 +11,9 @@ interface Props {
   title?: string;
   description?: string;
   image?: string;
-  themeColor?: string;
   jsonLd?: Record<string, unknown>;
 }
-const { lang, title, description = t(lang, 'site.description'), image = '/og.png', themeColor = '#111111', jsonLd } = Astro.props;
+const { lang, title, description = t(lang, 'site.description'), image = '/og.png', jsonLd } = Astro.props;
 const fullTitle = title ? `${title} · ${author.name}` : t(lang, 'site.title');
 const path = Astro.url.pathname;
 const canonical = new URL(path, Astro.site);
@@ -28,7 +29,7 @@ const en = lang === 'en' ? canonical : alt;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
-    <meta name="theme-color" content={themeColor} />
+    <meta name="theme-color" content="#03050a" />
     <link rel="canonical" href={canonical} />
     <link rel="alternate" hreflang="es" href={es} />
     <link rel="alternate" hreflang="en" href={en} />
@@ -49,7 +50,15 @@ const en = lang === 'en' ? canonical : alt;
   </head>
   <body>
     <a class="skip" href="#main">{t(lang, 'nav.skip')}</a>
-    <slot />
+    <!-- The space scene. It is kept alive between pages, so the Moon travels instead of reloading. -->
+    <div class="space" id="space" aria-hidden="true" transition:persist="space">
+      <canvas></canvas>
+      <img class="moon2d" src="/textures/moon-still.webp" alt="" width="1024" height="1024" decoding="async" />
+    </div>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="page">
+      <slot />
+    </div>
     <script>
       import '../scripts/motion.ts';
     </script>
