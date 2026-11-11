@@ -10,7 +10,7 @@ import {
   Matrix3,
   Matrix4,
   Mesh,
-  OrthographicCamera,
+  PerspectiveCamera,
   PlaneGeometry,
   Points,
   Scene,
@@ -24,6 +24,7 @@ import {
   type Texture,
 } from 'three';
 import type { Frame, SpaceRenderer } from './controller';
+import { applyRig, Director, makeRig, TELE_DISTANCE, TELE_FOV } from './camera';
 
 export type Quality = 'high' | 'low';
 
@@ -179,7 +180,8 @@ varying float vWarm;
 void main() {
   // "position" holds the place on the screen (0..1) and the depth of the star.
   vec2 p = fract(position.xy + uShift * (0.12 + position.z));
-  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+  // At the far end of the depth range: the Moon and the planets hide the stars behind them.
+  gl_Position = vec4(p * 2.0 - 1.0, 0.9999, 1.0);
   float twinkle = 0.8 + 0.2 * sin(uTime * (0.5 + aLook.y * 1.6) + aLook.y * 40.0);
   gl_PointSize = aLook.x * uPx;
   vAlpha = twinkle * uFade * aLook.w;
@@ -244,7 +246,12 @@ export class MoonScene implements SpaceRenderer {
   readonly alive = true;
   private renderer: WebGLRenderer;
   private scene = new Scene();
-  private camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
+  // A perspective camera. Away from the orbit it is a tele lens far away, which draws the plane of
+  // the Moon exactly like a flat camera would, so the poses keep their meaning.
+  private camera = new PerspectiveCamera(TELE_FOV, 1, 0.1, TELE_DISTANCE + 200);
+  private director = new Director();
+  private explore = makeRig();
+  private view = new Matrix4();
   private moon: Mesh<SphereGeometry, ShaderMaterial>;
   private glow: Mesh<PlaneGeometry, ShaderMaterial>;
   private stars: Points<BufferGeometry, ShaderMaterial>;
@@ -266,7 +273,7 @@ export class MoonScene implements SpaceRenderer {
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setClearColor(0x000000, 0);
     this.detail = quality === 'high' ? 1 : 0;
-    this.camera.position.z = 50;
+    applyRig(this.camera, this.director.update(this.explore, 0));
 
     this.stars = this.makeStars(quality === 'high' ? 1500 : 650);
     this.glow = new Mesh(
@@ -347,7 +354,7 @@ export class MoonScene implements SpaceRenderer {
       fragmentShader: STAR_FRAG,
       uniforms: { uShift: { value: new Vector2() }, uTime: { value: 0 }, uPx: { value: this.pixelRatio }, uFade: { value: 0 } },
       transparent: true,
-      depthTest: false,
+      depthTest: true,
       depthWrite: false,
       blending: AdditiveBlending,
     });
@@ -358,8 +365,7 @@ export class MoonScene implements SpaceRenderer {
 
   resize(width: number, height: number) {
     this.aspect = width / Math.max(1, height);
-    this.camera.left = -this.aspect;
-    this.camera.right = this.aspect;
+    this.camera.aspect = this.aspect;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
   }
@@ -374,7 +380,13 @@ export class MoonScene implements SpaceRenderer {
     this.moon.scale.setScalar(radius);
     this.euler.set(f.tilt + f.pointer[1] * -0.015, -Math.PI / 2 + f.spin + f.time * 0.004 + f.pointer[0] * 0.02, 0.06, 'XYZ');
     this.moon.rotation.copy(this.euler);
-    this.rotation.makeRotationFromEuler(this.euler);
+    this.moon.updateMatrixWorld();
+
+    this.camera.aspect = this.aspect;
+    applyRig(this.camera, this.director.update(this.explore, 0));
+    // The shading works in view space: the Moon's turn as the camera sees it.
+    this.view.multiplyMatrices(this.camera.matrixWorldInverse, this.moon.matrixWorld);
+    this.rotation.extractRotation(this.view);
 
     const u = this.moon.material.uniforms;
     (u.uRot.value as Matrix3).setFromMatrix4(this.rotation);
@@ -390,7 +402,8 @@ export class MoonScene implements SpaceRenderer {
     u.uDetail.value = this.detail * zoom;
 
     const g = this.glow.material.uniforms;
-    this.glow.position.set(x, y, -1);
+    this.glow.position.set(x, y, 0);
+    this.glow.quaternion.copy(this.camera.quaternion);
     this.glow.scale.setScalar(radius * 2 * 2.6);
     g.uStrength.value = (0.22 + 1.35 * Math.pow(e, 2.2)) * intro;
     g.uEclipse.value = e;
