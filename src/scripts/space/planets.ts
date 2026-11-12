@@ -156,37 +156,67 @@ vec3 cells(vec3 x) {
   return vec3(d1, d2 - d1, id);
 }
 vec3 turn(vec3 v, vec3 k, float a) { return v * cos(a) + cross(k, v) * sin(a) + k * dot(k, v) * (1.0 - cos(a)); }
-// Celestial: the sky is wound round a vortex at the pole of the look, then clouds gather in a few
-// broad regions.
+// One crater per cell at most: a bowl with a raised rim. -1 at the floor, +0.35 on the rim.
+float craterH(vec3 q) {
+  vec3 id = floor(q);
+  if (hash(id + 4.1) > 0.6) return 0.0;
+  vec3 c = 0.32 + 0.36 * vec3(hash(id + 11.3), hash(id + 23.7), hash(id + 37.1));
+  float rad = 0.09 + 0.12 * hash(id + 51.9);
+  float d = length(q - id - c) / rad;
+  if (d >= 1.5) return 0.0;
+  float depth = 0.4 + 0.6 * hash(id + 71.3);
+  return (d < 1.0 ? -1.0 + 1.35 * d * d : 0.35 * pow(1.0 - (d - 1.0) / 0.5, 2.0)) * depth;
+}
+// Tech: where the grey crust has broken open (1) and where it is whole (0), with a jagged edge.
+float broken(vec3 p) {
+  float m = noise(p * 1.25 + uSeed) + 0.35 * (fbm(p * 4.5 + uSeed) - 0.5) + 0.12 * (noise(p * 14.0) - 0.5);
+  return smoothstep(0.47, 0.51, m);
+}
+// Organic: cloud bands that wrap round the planet in wisps.
+float wisps(vec3 p) {
+  vec3 q = vec3(p.x * 2.2, p.y * 6.0, p.z * 2.2) + uSeed + vec3(uTime * 0.01, 0.0, 0.0);
+  float bands = smoothstep(0.3, 0.0, abs(p.y - 0.42 + 0.12 * sin(p.x * 3.0 + uSeed))) + smoothstep(0.24, 0.0, abs(p.y + 0.38 + 0.1 * sin(p.z * 3.0)));
+  return smoothstep(0.4, 0.68, fbm(q + fbm(q * 0.5))) * min(bands, 1.0);
+}
+// Network: billowing violet cloud over part of the globe.
+float billows(vec3 p) {
+  vec3 q = p * 2.4 + uSeed;
+  float where = smoothstep(0.6, 0.72, noise(q * 0.7 + 3.0));
+  float puff = 1.0 - abs(noise(q * 1.6 + fbm(q)) * 2.0 - 1.0);
+  return where * smoothstep(0.25, 0.8, puff * 0.6 + fbm(q * 2.0) * 0.6);
+}
+// Celestial: the sky is wound round a vortex at the pole of the look.
 vec3 swirl(vec3 p) {
   float d = 1.0 - dot(p, uPole);
-  return turn(p, uPole, 2.6 * exp(-d * 5.0) + uTime * 0.02);
+  return turn(p, uPole, 3.4 * exp(-d * 2.6) + uTime * 0.02);
 }
+// …and clouds gather low on the globe.
 float clouds(vec3 p) {
-  vec3 q = swirl(p) * 2.1 + uSeed;
-  float regions = smoothstep(0.52, 0.66, noise(q * 0.6 + 7.0));
-  return smoothstep(0.4, 0.66, fbm(q * 1.5 + fbm(q * 0.9) * 0.9)) * regions;
+  vec3 q = p * 3.0 + uSeed;
+  float low = smoothstep(-0.25, -0.6, p.y + 0.18 * sin(p.x * 4.0 + uSeed));
+  float puff = 1.0 - abs(noise(q * 1.4 + fbm(q * 0.8)) * 2.0 - 1.0);
+  return low * smoothstep(0.3, 0.85, puff * 0.55 + fbm(q * 1.8) * 0.65);
 }
 
 // Height of the ground (rock and ice) or of the cloud tops (gas), for a point on the unit sphere.
 float height(vec3 p) {
   vec3 q = p * 2.6 + uSeed;
-  if (uType > 5.5) return clouds(p) * 0.7;
+  if (uType > 5.5) return clouds(p) * 0.8;
   if (uType > 4.5) {
-    // Crystal rock: sharp ridges and flat faces.
-    return ridged(q * 1.5) * 0.9 + 0.2 * floor(noise(q * 2.0) * 4.0) / 4.0;
+    // Rough crystal ground under the billows.
+    return ridged(q * 1.5) * 0.5 + billows(p) * 0.9;
   }
   if (uType > 3.5) {
-    // Eroded ground: long ridges worn down, valleys between.
-    return ridged(q * 1.1 + fbm(q * 0.7)) * 0.9 + fbm(q * 3.0) * 0.25;
+    // Mountain country: long sharp ridges, one great crater, cloud on top.
+    float cr = length(p - uPole) / 0.34;
+    float crater = cr < 1.0 ? -0.5 + 0.75 * cr * cr : 0.25 * smoothstep(1.5, 1.0, cr);
+    return ridged(q * 1.25 + fbm(q * 0.7) * 0.8) * 1.1 + fbm(q * 4.0) * 0.2 + crater + wisps(p) * 0.5;
   }
   if (uType > 2.5) {
-    // Metallic rock: gentle ground with small and medium craters.
-    float c1 = noise(q * 2.6 + 3.0);
-    float c2 = noise(q * 6.0 + 11.0);
-    float pits = smoothstep(0.62, 0.74, c1) * 0.2 + smoothstep(0.66, 0.76, c2) * 0.1;
-    float rims = (smoothstep(0.54, 0.62, c1) - smoothstep(0.62, 0.7, c1)) * 0.07;
-    return fbm(q * 1.4) * 0.5 - pits + rims;
+    // Cratered crust; the broken regions lie lower and smoother.
+    float br = broken(p);
+    float cr = craterH(q * 1.6) * 0.22 + craterH(q * 3.7 + 9.0) * 0.1 + craterH(q * 8.0 + 3.0) * 0.045;
+    return mix(fbm(q * 1.8) * 0.3 + cr, fbm(q * 3.0) * 0.12 - 0.12, br);
   }
   if (uType < 0.5) {
     // Rock: rolling ground, worn basins with raised rims, fine grit.
@@ -216,7 +246,7 @@ void main() {
   float h = height(p);
   float hT = height(normalize(p + T * d));
   float hB = height(normalize(p + B * d));
-  float bump = uType < 0.5 ? 0.9 : (uType < 1.5 ? 0.12 : (uType < 2.5 ? 0.35 : (uType < 3.5 ? 0.9 : (uType < 4.5 ? 1.7 : (uType < 5.5 ? 1.1 : 0.9)))));
+  float bump = uType < 0.5 ? 0.9 : (uType < 1.5 ? 0.12 : (uType < 2.5 ? 0.35 : (uType < 3.5 ? 1.6 : (uType < 4.5 ? 1.5 : (uType < 5.5 ? 1.2 : 1.0)))));
   vec3 nObj = normalize(p - bump * ((hT - h) * T + (hB - h) * B) / d * 0.08);
   vec3 n = normalize(vX * nObj.x + vY * nObj.y + vZ * nObj.z);
   vec3 n0 = normalize(vX * p.x + vY * p.y + vZ * p.z);
@@ -226,69 +256,101 @@ void main() {
   vec3 emit = vec3(0.0);
   float gloss = 0.0;
   if (uType > 5.5) {
-    // Celestial: deep indigo under lavender clouds, an aurora, a few stars and a soft light at the vortex.
-    float cl = h / 0.7;
-    float deep = fbm(swirl(p) * 1.6 + uSeed);
-    albedo = mix(uDark * 0.55, uBase, smoothstep(0.25, 0.8, deep));
-    albedo = mix(albedo, mix(vec3(0.7, 0.72, 1.0), uSecond, 0.45) * 0.85, cl * 0.9);
+    // Celestial: night-blue streams of blue, cyan and violet wound into a vortex, lavender cloud
+    // low on the globe, stars, an aurora and a small winged light at the heart of the vortex.
+    float cl = h / 0.8;
+    vec3 sw = swirl(p);
+    vec3 sq = vec3(sw.x * 1.3, sw.y * 4.2, sw.z * 1.3) + uSeed;
+    float flow = fbm(sq + fbm(sq * 0.6) * 0.8);
+    float bright = smoothstep(0.42, 0.7, flow);
+    float thread = pow(1.0 - abs(noise(sq * 1.7 + 5.0) * 2.0 - 1.0), 5.0);
+    albedo = mix(vec3(0.004, 0.008, 0.035), uBase * 0.8, smoothstep(0.3, 0.75, flow));
+    vec3 stream = mix(vec3(0.08, 0.3, 1.0), vec3(0.25, 0.85, 1.0), smoothstep(0.55, 0.85, flow));
+    stream = mix(stream, uSecond, smoothstep(0.45, 0.7, noise(sw * 1.8 + uSeed + 3.0)));
+    emit += stream * (bright * 0.42 + thread * bright * 0.55) * (1.0 - cl);
+    albedo = mix(albedo, mix(vec3(0.72, 0.72, 1.0), uSecond, 0.35), cl * 0.92);
     vec3 axisA = normalize(cross(uPole, vec3(0.31, 0.9, 0.3)));
     float along = atan(dot(p, cross(axisA, uPole)), dot(p, uPole));
     float off = dot(p, axisA) + 0.13 * sin(along * 3.0 + uSeed) + 0.07 * (noise(p * 3.0 + uTime * 0.05) - 0.5);
-    float band = exp(-pow(off / 0.1, 2.0));
-    float part = 0.25 + 0.75 * smoothstep(0.3, 0.5, noise(vec3(along * 0.9, uSeed, uTime * 0.03)));
+    float band = exp(-pow(off / 0.07, 2.0));
+    float part = smoothstep(0.35, 0.55, noise(vec3(along * 0.9, uSeed, uTime * 0.03)));
     float folds = 0.6 + 0.4 * sin(along * 22.0 + noise(p * 5.0) * 5.0 + uTime * 0.25);
-    emit += mix(vec3(0.25, 0.5, 1.0), uSecond, 0.5 + 0.5 * sin(along * 2.0)) * band * part * folds * 1.6 * (1.0 - 0.6 * cl);
+    emit += mix(vec3(0.2, 0.75, 1.0), uSecond, 0.5 + 0.5 * sin(along * 2.0)) * band * part * folds * 0.9 * (1.0 - 0.6 * cl);
     vec3 sc = p * 15.0 + uSeed;
     vec3 si = floor(sc);
     float sh = hash(si + 2.2);
-    if (sh > 0.82) {
+    if (sh > 0.84) {
       float sd = length(sc - si - 0.5);
-      emit += mix(vec3(1.0), uSecond, 0.4) * smoothstep(0.2, 0.0, sd) * 1.4 * (1.0 - cl) * (0.6 + 0.4 * sin(uTime * (0.4 + sh) + sh * 30.0));
+      emit += mix(vec3(1.0), uSecond, 0.4) * smoothstep(0.18, 0.0, sd) * 1.3 * (1.0 - cl) * (0.6 + 0.4 * sin(uTime * (0.4 + sh) + sh * 30.0));
     }
-    float core = 1.0 - dot(p, uPole);
-    emit += mix(uSecond, vec3(1.0), 0.4) * (exp(-core * 110.0) * 1.3 + exp(-core * 16.0) * 0.22);
+    // The light at the heart: two soft wings and a bright core.
+    vec3 e1 = normalize(cross(uPole, vec3(0.0, 1.0, 0.0)));
+    vec3 e2 = cross(uPole, e1);
+    vec2 w = vec2(dot(p, e1), dot(p, e2)) / 0.16;
+    float front = step(0.0, dot(p, uPole));
+    float wing = exp(-pow(length(vec2(abs(w.x) - 0.45, w.y * 1.25 - 0.35 * abs(w.x))), 2.0) * 9.0);
+    wing += 0.6 * exp(-pow(length(vec2(abs(w.x) - 0.3, w.y * 1.6 + 0.45)), 2.0) * 16.0);
+    float coreL = exp(-dot(w, w) * 30.0);
+    emit += mix(uSecond, vec3(0.85, 0.9, 1.0), 0.55) * front * (wing * 0.9 + coreL * 1.6 + exp(-dot(w, w) * 1.2) * 0.2);
   } else if (uType > 4.5) {
-    // Network: crystal faces in violet, magenta light in the cracks, points of light joined by fine lines.
-    vec3 ce = cells(p * 2.7 + uSeed);
-    albedo = mix(uDark, uBase, 0.25 + 0.75 * ce.z);
-    albedo = mix(albedo, uLight, smoothstep(0.55, 0.9, h) * 0.5);
-    gloss = 0.5 * ce.z;
-    float crack = 1.0 - smoothstep(0.0, 0.02, ce.y);
-    float lit = smoothstep(0.55, 0.72, noise(p * 1.6 + uSeed + 4.0));
-    albedo *= 1.0 - 0.6 * (1.0 - smoothstep(0.0, 0.035, ce.y));
-    emit += uSecond * crack * lit * 0.8;
+    // Network: dark violet crystal with a web of magenta light and bright nodes, under lavender billows.
+    float bl = clamp((h - ridged((p * 2.6 + uSeed) * 1.5) * 0.5) / 0.9, 0.0, 1.0);
+    vec3 ce = cells(p * 3.4 + uSeed);
+    albedo = mix(uDark * 0.35, uBase * 0.55, 0.2 + 0.8 * ce.z);
+    gloss = 0.4 * ce.z * (1.0 - bl);
+    float open = 1.0 - smoothstep(0.05, 0.5, bl);
+    // The fine web: the seams between crystals.
+    float web = 1.0 - smoothstep(0.0, 0.016, ce.y);
+    emit += uSecond * web * open * 0.55;
     float points = 0.0;
     float lines = 0.0;
+    float warm = 0.0;
     for (int i = 0; i < 10; i++) {
       vec3 a = uNodes[i];
       float da = 1.0 - dot(p, a);
-      points += exp(-da * 900.0) * 1.6 + exp(-da * 90.0) * 0.3;
+      float pt = exp(-da * 1100.0) * 2.2 + exp(-da * 120.0) * 0.45 + exp(-da * 18.0) * 0.07;
+      points += pt;
+      if (i == 2 || i == 6) warm += pt;
       for (int k = 1; k <= 2; k++) {
-        if (k == 2 && (i - (i / 3) * 3) != 0) continue;
+        if (k == 2 && (i - (i / 2) * 2) != 0) continue;
         vec3 b = uNodes[(i + k) - ((i + k) / 10) * 10];
         vec3 nn = normalize(cross(a, b));
         float inside = step(0.0, dot(cross(a, p), nn)) * step(0.0, dot(cross(p, b), nn));
-        lines += (1.0 - smoothstep(0.0, 0.006, abs(dot(p, nn)))) * inside;
+        lines += (1.0 - smoothstep(0.0, 0.007, abs(dot(p, nn)))) * inside;
       }
     }
-    emit += mix(uSecond, vec3(1.0, 0.85, 1.0), 0.6) * points + mix(uSecond, vec3(1.0, 0.8, 1.0), 0.3) * min(lines, 1.0) * 0.6;
+    emit += (mix(uSecond, vec3(1.0, 0.85, 1.0), 0.65) * points + vec3(1.0, 0.45, 0.2) * warm * 0.7
+      + mix(uSecond, vec3(1.0, 0.8, 1.0), 0.35) * min(lines, 1.0) * 0.9) * (0.25 + 0.75 * open);
+    // Billows: lavender on top, violet in their folds.
+    vec3 cloud = mix(uBase * 0.3, vec3(0.42, 0.28, 0.8), smoothstep(0.3, 1.0, bl));
+    albedo = mix(albedo, cloud, smoothstep(0.05, 0.4, bl));
   } else if (uType > 3.5) {
-    // Organic: olive ground, dark in the valleys, gold on some worn uplands.
-    albedo = mix(uDark, uBase, smoothstep(0.25, 0.6, h));
-    albedo = mix(albedo, uBase * 1.5, smoothstep(0.7, 0.95, h) * 0.3);
-    float gold = smoothstep(0.66, 0.78, noise(p * 2.1 + uSeed + 9.0)) * smoothstep(0.4, 0.65, h);
-    albedo = mix(albedo, uSecond, gold * 0.65);
-    albedo *= 0.75 + 0.5 * fbm(p * 9.0 + uSeed);
+    // Organic: dark green valleys, olive slopes, gold and ochre on the sunlit ridges, white cloud.
+    float cl = wisps(p);
+    float g = h - cl * 0.5;
+    albedo = mix(uDark * 0.7, uBase, smoothstep(0.2, 0.6, g));
+    vec3 ochre = mix(uSecond, vec3(0.42, 0.3, 0.1), 0.35 + 0.4 * noise(p * 6.0 + uSeed));
+    albedo = mix(albedo, ochre, smoothstep(0.6, 0.95, g) * (0.45 + 0.5 * smoothstep(0.4, 0.6, noise(p * 1.8 + uSeed + 9.0))));
+    albedo = mix(albedo, uSecond * 1.3, smoothstep(0.95, 1.25, g) * 0.6);
+    albedo *= 0.7 + 0.6 * fbm(p * 11.0 + uSeed);
+    albedo = mix(albedo, vec3(0.88, 0.88, 0.84), smoothstep(0.1, 0.7, cl) * 0.92);
   } else if (uType > 2.5) {
-    // Tech: plates of silver and blue-grey metal; ice-blue light in some of the seams.
-    vec3 ce = cells(p * 3.1 + uSeed);
-    albedo = mix(uDark * 1.6, uBase, 0.2 + 0.5 * ce.z + 0.3 * smoothstep(0.1, 0.5, h + 0.2));
-    albedo = mix(albedo, uLight, smoothstep(0.42, 0.6, h + 0.2) * 0.35);
-    gloss = 0.5 + 0.4 * ce.z;
-    float seam = 1.0 - smoothstep(0.0, 0.03, ce.y);
-    float lit = smoothstep(0.5, 0.68, noise(p * 1.5 + uSeed + 2.0));
-    albedo *= 1.0 - 0.55 * seam;
-    emit += uSecond * seam * lit * 1.0;
+    // Tech: silver-grey cratered crust; where it has broken, dark blue depths crossed by veins of
+    // ice-blue light, with glints where veins meet.
+    float br = broken(p);
+    albedo = mix(uDark * 1.5, uBase, smoothstep(-0.05, 0.3, h));
+    albedo = mix(albedo, uLight, smoothstep(0.28, 0.45, h) * 0.5);
+    albedo *= 0.8 + 0.4 * fbm(p * 13.0 + uSeed);
+    gloss = 0.35 * (1.0 - br);
+    vec3 ce = cells(p * 4.2 + uSeed + (fbm(p * 6.0) - 0.5) * 0.5);
+    vec3 depths = mix(vec3(0.006, 0.014, 0.06), vec3(0.03, 0.08, 0.26), ce.z * 0.8 + 0.2 * noise(p * 5.0));
+    albedo = mix(albedo, depths, br);
+    float vein = 1.0 - smoothstep(0.0, 0.013, ce.y);
+    float glow = exp(-ce.y * 16.0) * 0.25;
+    float glint = exp(-ce.x * ce.x * 260.0) * step(0.72, ce.z);
+    // The edge of the break glows faintly too.
+    float rim = br * (1.0 - br) * 4.0;
+    emit += br * (mix(uSecond, vec3(0.92, 0.97, 1.0), 0.6) * vein * 1.25 + uSecond * glow + vec3(0.9, 0.96, 1.0) * glint * 1.8) + uSecond * rim * 0.35;
   } else if (uType < 0.5) {
     albedo = mix(uDark, uBase, smoothstep(0.32, 0.62, h));
     albedo = mix(albedo, uLight, smoothstep(0.66, 0.85, h) * 0.7);
@@ -376,6 +438,8 @@ uniform float uSeed;
 uniform float uDim;
 uniform float uIn;
 uniform float uOut;
+uniform float uGlow;
+uniform vec3 uTint;
 varying float vR;
 float h(float x) { return fract(sin(x * 91.7 + uSeed) * 43758.5453); }
 float n1(float x) { float i = floor(x); float f = fract(x); return mix(h(i), h(i + 1.0), f * f * (3.0 - 2.0 * f)); }
@@ -385,8 +449,14 @@ void main() {
   float edge = smoothstep(0.0, 0.08, t) * smoothstep(1.0, 0.86, t);
   float gap = 1.0 - 0.85 * smoothstep(0.02, 0.0, abs(t - 0.62));
   float a = bands * edge * gap * 0.55 * mix(1.0, 0.35, uDim);
-  vec3 col = mix(uBase, uLight, n1(t * 21.0));
-  gl_FragColor = vec4(col * 0.75, a);
+  vec3 col = mix(uBase, uLight, n1(t * 21.0)) * 0.75;
+  if (uGlow > 0.0) {
+    // A fine ring of light: a bright thread with a soft skirt.
+    float c = abs(t - 0.5) * 2.0;
+    a = (exp(-c * c * 60.0) * 0.9 + exp(-c * c * 6.0) * 0.12) * uGlow * mix(1.0, 0.35, uDim);
+    col = mix(uTint, vec3(1.0), exp(-c * c * 40.0) * 0.6);
+  }
+  gl_FragColor = vec4(col, a);
   #include <colorspace_fragment>
 }`;
 
@@ -567,13 +637,14 @@ export class PlanetSystem {
 
     let ring: Body['ring'] = null;
     // Banded giants carry a wide ring; the tech look a fine, discreet one.
-    if (type === 1 || type === 3) {
-      const inner = type === 3 ? 1.66 : 1.4;
-      const outer = type === 3 ? 1.73 : 2.25;
+    if (type === 1 || type >= 3 && type !== 4) {
+      const fine = type >= 3;
+      const inner = fine ? (type === 3 ? 1.6 : type === 5 ? 1.42 : 1.5) : 1.4;
+      const outer = fine ? inner + 0.1 : 2.25;
       ring = new Mesh(new RingGeometry(inner, outer, 128, 1), new ShaderMaterial({
         vertexShader: RING_VERT,
         fragmentShader: RING_FRAG,
-        uniforms: { uBase: body.material.uniforms.uBase, uLight: body.material.uniforms.uLight, uSeed: { value: rnd() * 10 }, uDim: body.material.uniforms.uDim, uIn: { value: inner }, uOut: { value: outer } },
+        uniforms: { uBase: body.material.uniforms.uBase, uLight: body.material.uniforms.uLight, uSeed: { value: rnd() * 10 }, uDim: body.material.uniforms.uDim, uIn: { value: inner }, uOut: { value: outer }, uGlow: { value: fine ? (type === 6 ? 0.55 : 0.8) : 0 }, uTint: body.material.uniforms.uSecond },
         side: DoubleSide,
         transparent: true,
         depthWrite: false,
@@ -581,12 +652,12 @@ export class PlanetSystem {
       ring.rotation.x = -Math.PI / 2;
       axis.add(ring);
     }
-    // The organic look keeps a few small rocks circling close by.
+    // The organic and tech looks keep a few small rocks circling close by.
     let debris: Object3D | null = null;
-    if (type === 4) {
+    if (type === 4 || type === 3) {
       debris = new Object3D();
       debris.rotation.set(0.5, 0, 0.25);
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < (type === 3 ? 5 : 7); i++) {
         const rock = new Mesh(this.rock, body.material);
         const a = rnd() * Math.PI * 2;
         const r = 1.3 + rnd() * 0.45;
