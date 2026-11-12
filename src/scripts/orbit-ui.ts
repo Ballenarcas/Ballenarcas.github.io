@@ -27,6 +27,7 @@ export function orbitUi(scene: MoonScene): () => void {
     look: (b.dataset.look as Look) || undefined,
     accent2: b.dataset.accent2 || undefined,
     size: (b.dataset.size as PlanetDef['size']) || undefined,
+    textures: b.dataset.textures === 'true',
   }));
   scene.setPlanets(defs);
   scene.showPlanets(defs.map((d) => d.id));

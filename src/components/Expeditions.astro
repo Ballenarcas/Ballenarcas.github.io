@@ -31,7 +31,7 @@ const screens = (1.9 + 0.2 * projects.length).toFixed(2);
           {projects.map((p, i) => (
             <li>
               <button type="button" class="orbit-label" data-planet={slugOf(p)} data-accent={p.data.accent} data-featured={String(p.data.featured)}
-                data-look={p.data.planet} data-accent2={p.data.accent2} data-size={p.data.planetSize}
+                data-look={p.data.planet} data-accent2={p.data.accent2} data-size={p.data.planetSize} data-textures={p.data.planetTextures ? 'true' : undefined}
                 aria-controls="orbit-panel" aria-expanded="false" style={`--accent:${p.data.accent}`}>
                 <span>{p.data.title}</span>
               </button>

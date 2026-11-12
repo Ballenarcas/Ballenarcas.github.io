@@ -40,6 +40,7 @@ Projects are data. Nothing about a project is written in a component.
    | `repo`, `demo` | Links. Leave `demo` out when there is none |
    | `draft` | `true` hides the project from the published site |
    | `planet`, `accent2`, `planetSize` | Optional. The planet's designed look in the 3D orbit (`tech`, `organic`, `network`, `celestial`), its second colour and its size. Without `planet`, a surface is picked automatically |
+   | `planetTextures` | `true` when `public/textures/planets/` holds the project's five equirectangular maps: `<slug>_albedo.png` (sRGB), `_normal`, `_height`, `_roughness` and `_emissive` (plain data). They become the planet's surface; without them, or until they load, the surface is drawn by the shader |
    | `status: "private"` | The project shows only its name and summary: no page, no links, no stack. `repo`, `cover` and `tagline` can then be left out |
 
 4. **Push to `main`.** The project appears among the expeditions, gets its own page in both languages and joins the "next expedition" chain.

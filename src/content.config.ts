@@ -33,6 +33,8 @@ const projects = defineCollection({
       planet: z.enum(['tech', 'organic', 'network', 'celestial']).optional(),
       accent2: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       planetSize: z.enum(['medium', 'medium-large']).optional(),
+      /** `true` when public/textures/planets holds <slug>_albedo, _normal, _height, _roughness and _emissive .png. */
+      planetTextures: z.boolean().default(false),
       cover: image().optional(),
       coverAlt: z.string().default(''),
       gallery: z.array(z.object({ src: image(), alt: z.string() })).default([]),
