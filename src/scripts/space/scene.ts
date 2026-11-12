@@ -14,6 +14,7 @@ import {
   Mesh,
   PerspectiveCamera,
   PlaneGeometry,
+  Quaternion,
   Points,
   Scene,
   ShaderMaterial,
@@ -447,6 +448,9 @@ void main() {
 }`;
 
 const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+const UP = new Vector3(0, 1, 0);
+/** The camera's drift round the Moon for a progress through the orbit: a few degrees, no more. */
+const orbitYaw = (s: number) => 0.35 + s * 0.3;
 
 export class MoonScene implements SpaceRenderer {
   readonly ready: Promise<void>;
@@ -464,7 +468,6 @@ export class MoonScene implements SpaceRenderer {
   private view = new Matrix4();
   private planets: PlanetSystem;
   private moonAt = new Vector3();
-  private lean = new Vector3();
   private focusYaw = 0;
   private prevTime = -1;
   private weight = 0;
@@ -625,13 +628,21 @@ export class MoonScene implements SpaceRenderer {
     this.moon.scale.setScalar(radius);
     this.euler.set(f.tilt + f.pointer[1] * -0.015, -Math.PI / 2 + f.spin + f.time * 0.004 + f.pointer[0] * 0.02, 0.06, 'XYZ');
     this.moon.rotation.copy(this.euler);
+    // Leaving the orbit, the camera goes back to its plain place in front of the Moon. Unwinding its
+    // trip round would spin everything backwards, so the Moon and the planets turn with it instead
+    // and nothing is seen to rotate: the view simply pulls back.
+    const through = f.orbitProgress;
+    const on = f.orbit * f.orbit * (3 - 2 * f.orbit);
+    const leaving = Math.min(1, Math.max(0, (through - 0.75) / 0.25));
+    const carried = -(leaving * leaving * (3 - 2 * leaving)) * (orbitYaw(1) - on * orbitYaw(through));
+    this.moon.quaternion.premultiply(this.turnY.setFromAxisAngle(UP, carried));
     this.moon.updateMatrixWorld();
 
     const dt = this.prevTime < 0 ? 0 : Math.min(0.1, Math.max(0, f.time - this.prevTime));
     this.prevTime = f.time;
     this.weight = f.orbit;
     this.moonAt.set(x, y, 0);
-    this.planets.update({ dt, weight: f.orbit, progress: f.orbitProgress, moon: this.moonAt, moonRadius: radius });
+    this.planets.update({ dt, weight: f.orbit, progress: f.orbitProgress, moon: this.moonAt, moonRadius: radius, turn: carried });
     this.camera.aspect = this.aspect;
     applyRig(this.camera, this.director.update(this.wanted(f.orbit, f.orbitProgress), dt));
     // The shading works in view space: the Moon's turn as the camera sees it.
@@ -680,7 +691,7 @@ export class MoonScene implements SpaceRenderer {
     // The stars turn with the camera, so a move round the Moon reads as travel.
     const rig = this.director.rig;
     const s = this.stars.material.uniforms;
-    (s.uShift.value as Vector2).set(f.pointer[0] * -0.006 - rig.yaw * 0.08, f.screens * 0.05 + f.pointer[1] * -0.006 + rig.pitch * 0.12);
+    (s.uShift.value as Vector2).set(f.pointer[0] * -0.006 - (rig.yaw - carried) * 0.08, f.screens * 0.05 + f.pointer[1] * -0.006 + rig.pitch * 0.12);
     s.uTime.value = f.time;
     s.uFade.value = Math.min(1, f.intro * 2.2);
 
@@ -705,28 +716,15 @@ export class MoonScene implements SpaceRenderer {
     return this.explore;
   }
 
-  /** The exploration: as the section scrolls the camera travels a calm arc round the Moon, with a
-   *  slight dip half-way and a slight lean towards one planet after another. */
+  /** The exploration: the system comes in, holds still while the section scrolls, and goes. */
   private makeOrbitRig(s: number) {
     const r = this.orbitRig;
-    const R = this.moon.scale.x;
-    const reach = this.planets.reach * R;
-    const planets = this.planets.shownWorld();
-    this.lean.set(0, 0, 0);
-    let spot = 0;
-    planets.forEach((p, k) => {
-      const at = 0.14 + (0.72 * (k + 0.5)) / planets.length;
-      const w = Math.exp(-(((s - at) / 0.16) ** 2));
-      this.lean.addScaledVector(this.tmpV.copy(p).sub(this.moonAt), w);
-      spot += w;
-    });
-    // A calm arc: about a third of a turn, easing in and out, with only a slight lean and dip.
-    const eased = s * s * (3 - 2 * s);
-    r.target.copy(this.moonAt).addScaledVector(this.lean, 0.18);
-    r.yaw = 0.35 + eased * Math.PI * 0.6;
-    r.pitch = 0.4 + (0.32 - 0.4) * s - 0.1 * Math.sin(Math.PI * s);
-    const fit = Math.min(2.4, Math.max(1, (reach * 1.02) / this.aspect));
-    r.frame = fit * (1 - 0.1 * Math.min(1, spot));
+    const reach = this.planets.reach * this.moon.scale.x;
+    // A steady view of the whole system, centred on the Moon: no zoom, no lean, only a slow drift round.
+    r.target.copy(this.moonAt);
+    r.yaw = orbitYaw(s);
+    r.pitch = 0.36;
+    r.frame = Math.min(2.4, Math.max(1, (reach * 1.02) / this.aspect));
     r.fov = 30;
     r.shiftX = 0;
     r.shiftY = 0;
@@ -753,6 +751,7 @@ export class MoonScene implements SpaceRenderer {
   }
 
   private tmpV = new Vector3();
+  private turnY = new Quaternion();
 
   /** Tell the page where the planets are. */
   private report() {

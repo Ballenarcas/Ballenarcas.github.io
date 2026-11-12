@@ -723,7 +723,7 @@ export class PlanetSystem {
    * scroll through it. `sun` is the sun direction in view space; the Moon's place and size are given
    * in world space and its centre is turned into view space for the shadow.
    */
-  update(o: { dt: number; weight: number; progress: number; moon: Vector3; moonRadius: number }) {
+  update(o: { dt: number; weight: number; progress: number; moon: Vector3; moonRadius: number; turn: number }) {
     const on = o.weight > 0.001 && this.bodies.length > 0;
     this.group.visible = on;
     if (this.lastProgress < 0) this.lastProgress = o.progress;
@@ -732,6 +732,7 @@ export class PlanetSystem {
     if (!on) return;
     this.time.value += o.dt;
     this.group.position.copy(o.moon);
+    this.group.rotation.y = o.turn;
     this.group.scale.setScalar(o.moonRadius);
     this.group.updateMatrixWorld();
 

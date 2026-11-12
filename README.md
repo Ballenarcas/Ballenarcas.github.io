@@ -81,7 +81,7 @@ One value, `eclipse`, goes from 0 (full violet Moon) to 1 (total eclipse) with t
 With the 3D scene, the expeditions section is a pinned stage the scroll travels through: every published project is a planet circling the Moon. Nothing is written per project: size, orbit, surface (rock, banded gas or ice), ring and colour come from the project's data (`featured`, `order`, `accent`, its slug as a seed). Add a project and it gets a planet.
 
 - **One camera, one owner.** `camera.ts` describes a camera as a rig (what it looks at, from where, how much fits on screen). The director follows one source at a time, the exploration (the scroll through the section) or one planet. Any change starts from the camera as it is at that moment and blends into the new source, so quick clicks, planet to planet, closing and scrolling during a focus never jump.
-- **Exploration**: the progress is measured on the section itself. The camera travels about a third of the way round the Moon, easing in and out, with a slight dip and a slight lean towards each planet in turn.
+- **Exploration**: the progress is measured on the section itself. The system of planets comes in as the section arrives, holds a steady view centred on the Moon while it scrolls (no zoom, a few degrees of drift) and goes as it leaves. The planets keep turning on their orbits by themselves.
 - **Focus**: a click, a tap or Enter on a planet's label flies the camera to it, follows it round its orbit and opens its panel; the scroll keeps working. Escape, the close button or clicking empty sky go back to the composition of the current scroll position. Leaving the section closes it.
 - Without 3D (2D, reduced motion, no script) the section is the list of expeditions, as before.
 
