@@ -705,8 +705,8 @@ export class MoonScene implements SpaceRenderer {
     return this.explore;
   }
 
-  /** The exploration: the camera circles the Moon as the section scrolls, dipping towards the plane of
-   *  the orbits half-way, and leans towards one planet after another as their moments come. */
+  /** The exploration: as the section scrolls the camera travels a calm arc round the Moon, with a
+   *  slight dip half-way and a slight lean towards one planet after another. */
   private makeOrbitRig(s: number) {
     const r = this.orbitRig;
     const R = this.moon.scale.x;
@@ -716,15 +716,17 @@ export class MoonScene implements SpaceRenderer {
     let spot = 0;
     planets.forEach((p, k) => {
       const at = 0.14 + (0.72 * (k + 0.5)) / planets.length;
-      const w = Math.exp(-(((s - at) / 0.1) ** 2));
+      const w = Math.exp(-(((s - at) / 0.16) ** 2));
       this.lean.addScaledVector(this.tmpV.copy(p).sub(this.moonAt), w);
       spot += w;
     });
-    r.target.copy(this.moonAt).addScaledVector(this.lean, 0.5);
-    r.yaw = 0.35 + s * Math.PI * 1.5;
-    r.pitch = 0.42 + (0.3 - 0.42) * s - 0.26 * Math.sin(Math.PI * s);
+    // A calm arc: about a third of a turn, easing in and out, with only a slight lean and dip.
+    const eased = s * s * (3 - 2 * s);
+    r.target.copy(this.moonAt).addScaledVector(this.lean, 0.18);
+    r.yaw = 0.35 + eased * Math.PI * 0.6;
+    r.pitch = 0.4 + (0.32 - 0.4) * s - 0.1 * Math.sin(Math.PI * s);
     const fit = Math.min(2.4, Math.max(1, (reach * 1.02) / this.aspect));
-    r.frame = fit * (1 - 0.3 * Math.min(1, spot));
+    r.frame = fit * (1 - 0.1 * Math.min(1, spot));
     r.fov = 30;
     r.shiftX = 0;
     r.shiftY = 0;

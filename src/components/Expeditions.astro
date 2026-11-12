@@ -14,7 +14,7 @@ const { lang, projects } = Astro.props;
 const featured = projects.filter((p) => p.data.featured && !isPrivate(p));
 const rest = projects.filter((p) => !featured.includes(p));
 // Length of the journey through the orbit, in screens: more planets, a longer trip.
-const screens = (2.5 + 0.8 * projects.length).toFixed(2);
+const screens = (2 + 0.3 * projects.length).toFixed(2);
 ---
 <section class="scene expeditions" id="expeditions" data-pose="projects">
   <div class="orbit-track" data-orbit-track style={`--screens:${screens}`}>

@@ -739,7 +739,7 @@ export class PlanetSystem {
       const k = b.orbit;
       const a = b.live.a;
       // Kepler-like: outer planets go round more slowly. The scroll also carries them along.
-      k.angle += (0.3 * Math.pow(SLOT0 / a, 1.5) * k.speed) * o.dt + scrolled * 1.6 * Math.pow(SLOT0 / a, 0.5);
+      k.angle += (0.3 * Math.pow(SLOT0 / a, 1.5) * k.speed) * o.dt + scrolled * 0.35 * Math.pow(SLOT0 / a, 0.5);
       // Crowded systems get rounder orbits, so neighbours do not cross.
       const e = k.e * (this.step / SLOT_STEP);
       const r = (a * (1 - e * e)) / (1 + e * Math.cos(k.angle));
