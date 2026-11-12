@@ -488,8 +488,8 @@ interface Body {
   world: Vector3;
 }
 
-const SLOT0 = 2.55;
-const SLOT_STEP = 1.3;
+const SLOT0 = 2.7;
+const SLOT_STEP = 1.45;
 
 export class PlanetSystem {
   readonly group = new Group();
@@ -568,7 +568,7 @@ export class PlanetSystem {
 
   /** Space between orbits: it narrows as projects are added, so a long list still fits the frame. */
   private get step() {
-    return Math.min(SLOT_STEP, Math.max(0.72, 3.9 / Math.max(1, this.bodies.length)));
+    return Math.min(SLOT_STEP, Math.max(0.72, 6.5 / Math.max(1, this.bodies.length)));
   }
 
   private make(def: PlanetDef, count: number): Body {
@@ -680,12 +680,13 @@ export class PlanetSystem {
       size,
       orbit: {
         a: SLOT0,
-        e: 0.03 + 0.1 * rnd(),
-        incl: (rnd() - 0.5) * 0.42,
+        // Circles centred on the Moon. (The draw is still taken, so the other values stay as they were.)
+        e: rnd() * 0,
+        incl: (rnd() - 0.5) * 0.24,
         node: rnd() * Math.PI * 2,
         // Start spread around the Moon, each a little off an even share.
-        angle: (def.rank / Math.max(1, count)) * Math.PI * 2 + rnd() * 0.9 + 0.4,
-        speed: 0.85 + 0.3 * rnd(),
+        angle: (def.rank / Math.max(1, count)) * Math.PI * 2 + rnd() * 0.35 + 0.4,
+        speed: 0.92 + 0.16 * rnd(),
         spin: (0.06 + 0.08 * rnd()) * (rnd() > 0.2 ? 1 : -1),
       },
       live: { a: SLOT0, presence: 1, hover: 0, dim: 0 },
@@ -740,7 +741,7 @@ export class PlanetSystem {
       const k = b.orbit;
       const a = b.live.a;
       // Kepler-like: outer planets go round more slowly. The scroll also carries them along.
-      k.angle += (0.3 * Math.pow(SLOT0 / a, 1.5) * k.speed) * o.dt + scrolled * 0.35 * Math.pow(SLOT0 / a, 0.5);
+      k.angle += (0.24 * Math.pow(SLOT0 / a, 0.6) * k.speed) * o.dt + scrolled * 0.35 * Math.pow(SLOT0 / a, 0.5);
       // Crowded systems get rounder orbits, so neighbours do not cross.
       const e = k.e * (this.step / SLOT_STEP);
       const r = (a * (1 - e * e)) / (1 + e * Math.cos(k.angle));

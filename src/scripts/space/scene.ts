@@ -724,7 +724,9 @@ export class MoonScene implements SpaceRenderer {
     r.target.copy(this.moonAt);
     r.yaw = orbitYaw(s);
     r.pitch = 0.36;
-    r.frame = Math.min(2.4, Math.max(1, (reach * 1.02) / this.aspect));
+    // Wide enough for the outermost orbit with room to spare, so the system is seen from afar.
+    // On tall screens the view stops short of that, or the planets would be specks.
+    r.frame = Math.min(this.aspect < 0.85 ? 2.1 : 3, Math.max(1.25, (reach * 1.12) / this.aspect));
     r.fov = 30;
     r.shiftX = 0;
     r.shiftY = 0;
@@ -737,9 +739,13 @@ export class MoonScene implements SpaceRenderer {
     if (!p) return null;
     const r = this.focusRig;
     const tall = this.aspect < 0.85;
-    r.target.copy(p.at);
+    // Still centred on the Moon: the camera stands on the line from the Moon through the planet,
+    // beyond the planet, so following it round its orbit is a turn about the Moon.
+    r.target.copy(this.moonAt);
     const out = this.tmpV.copy(p.at).sub(this.moonAt);
-    this.focusYaw = nearAngle(Math.atan2(out.x, out.z) + 0.5, this.focusYaw);
+    r.out = Math.hypot(out.x, out.z);
+    r.lift = out.y;
+    this.focusYaw = nearAngle(Math.atan2(out.x, out.z), this.focusYaw);
     r.yaw = this.focusYaw;
     // From a little above the plane of the orbits, so the other planets pass below the line of sight.
     r.pitch = 0.4;
