@@ -35,8 +35,13 @@ const priv = isPrivate(project);
       <div class="orbit"><i></i></div>
       <a class={`exp-shot ${portrait ? 'portrait' : 'landscape'}`} href={href} aria-label={`${t(lang, 'work.open')}: ${d.title}`} data-depth="0.08">
         {d.loop ? (
-          <video data-autoplay data-src={d.loop} poster={d.loop.replace('.mp4', '.jpg')} muted loop playsinline preload="none"
-            width={portrait ? 560 : 1280} height={portrait ? 1212 : 800} aria-label={d.coverAlt}></video>
+          <>
+            {/* The poster is set by script when the clip is about to be seen, so a hidden list
+                downloads nothing. Without script, a lazy picture stands in. */}
+            <video data-autoplay data-src={d.loop} data-poster={d.loop.replace('.mp4', '.jpg')} muted loop playsinline preload="none"
+              width={portrait ? 560 : 1280} height={portrait ? 1212 : 800} aria-label={d.coverAlt}></video>
+            <noscript><img src={d.loop.replace('.mp4', '.jpg')} alt={d.coverAlt} loading="lazy" width={portrait ? 560 : 1280} height={portrait ? 1212 : 800} /></noscript>
+          </>
         ) : d.cover && (
           <Image src={d.cover} alt={d.coverAlt} widths={portrait ? [360, 560, 780] : [640, 1024, 1680]}
             sizes={portrait ? '290px' : '(min-width: 960px) 56vw, 100vw'} loading="lazy" />

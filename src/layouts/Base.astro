@@ -69,7 +69,8 @@ const en = lang === 'en' ? canonical : alt;
     <!-- The space scene. It is kept alive between pages, so the Moon travels instead of reloading. -->
     <div class="space" id="space" aria-hidden="true" transition:persist="space">
       <canvas></canvas>
-      <img class="moon2d" src="/textures/moon-still.webp" alt="" width="1024" height="1024" decoding="async" />
+      <!-- Lazy: while the 3D Moon runs this picture stays hidden and is never downloaded. -->
+      <img class="moon2d" src="/textures/moon-still.webp" alt="" width="1024" height="1024" decoding="async" loading="lazy" />
     </div>
     <div class="grain" aria-hidden="true"></div>
     <div class="page">

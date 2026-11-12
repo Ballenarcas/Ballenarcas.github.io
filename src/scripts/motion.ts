@@ -18,15 +18,16 @@ let scene: Promise<MoonScene | null> = Promise.resolve(null);
 /** The projects are an orbit (3D) on this device. Decided before the first paint, in the page head. */
 let orbit = false;
 
-/** Which version of the scene this device gets. `?flat`, `?low` and `?high` force one, for testing.
- *  The head script has already checked WebGL 2, data saving and memory: `orbit-on` means 3D is possible. */
-function tier(): 'high' | 'low' | 'flat' {
+/** Which version of the scene this device gets. `?flat`, `?low`, `?medium` and `?high` force one.
+ *  The head script has already checked WebGL 2, data saving and memory: `orbit-on` means 3D is possible.
+ *  high: computers. medium: phones and tablets. low: devices with little memory or few cores. */
+function tier(): 'high' | 'medium' | 'low' | 'flat' {
   const query = new URLSearchParams(location.search);
   if (!document.documentElement.classList.contains('orbit-on')) return 'flat';
+  for (const t of ['high', 'medium', 'low'] as const) if (query.has(t)) return t;
   const nav = navigator as Navigator & { deviceMemory?: number };
-  const modest = matchMedia('(max-width: 820px)').matches || (nav.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4;
-  if (query.has('high')) return 'high';
-  return query.has('low') || modest ? 'low' : 'high';
+  if ((nav.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4) return 'low';
+  return matchMedia('(max-width: 820px)').matches ? 'medium' : 'high';
 }
 
 /** Start the space scene once; it then lives across page changes. */
@@ -166,6 +167,15 @@ function constellations() {
 function clips() {
   const vids = document.querySelectorAll<HTMLVideoElement>('video[data-autoplay]');
   if (!vids.length) return;
+  // Posters arrive a screen before their clip.
+  const near = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const v = e.target as HTMLVideoElement;
+      if (e.isIntersecting && v.dataset.poster && !v.poster) { v.poster = v.dataset.poster; near.unobserve(v); }
+    }
+  }, { rootMargin: '100% 0px' });
+  vids.forEach((v) => near.observe(v));
+  cleanups.push(() => near.disconnect());
   if (reduced()) { vids.forEach((v) => v.setAttribute('controls', '')); return; }
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) {

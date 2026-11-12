@@ -13,6 +13,7 @@ import {
   DoubleSide,
   Group,
   IcosahedronGeometry,
+  InstancedMesh,
   LinearFilter,
   LinearMipmapLinearFilter,
   NoColorSpace,
@@ -59,10 +60,10 @@ interface LookConfig {
   air: number;
   airMix: number;
   /** With a texture set. relief: large-scale slopes from the height map; fine: the normal map's detail;
-   *  displace: how far the height map lifts the ground (in planet radii); gain: how much the
-   *  albedo map's brightness varies the drawn colour; polish: how shiny the smoothest ground gets.
-   *  emit and saturation are kept for maps whose patterns suit their planet (none in the pack). */
-  surface: { relief: number; fine: number; displace: number; emit: number; gain: number; saturation: number; polish: number };
+   *  displace: how far the height map lifts the ground (in planet radii); emit: how much the
+   *  emissive mask does (its role differs per planet); albedo: the share of the albedo map in the
+   *  colour; saturation: of that map's colour; polish: how shiny the smoothest ground gets. */
+  surface: { relief: number; fine: number; displace: number; emit: number; albedo: number; saturation: number; polish: number };
   /** A ring: inner and outer radius (planet radii) and how bright its thread of light is. */
   ring?: { inner: number; outer: number; glow: number };
   /** A cloud layer just above the ground. */
@@ -77,26 +78,26 @@ const LOOKS: Record<Look, LookConfig> = {
   // Boost: silver mineral crust, fractured onto dark depths with ice-blue light; a fine ring.
   tech: {
     type: 3, second: '#8fd4ff', air: 0.3, airMix: 0.3,
-    surface: { relief: 5, fine: 0.9, displace: 0.025, emit: 0, gain: 0.5, saturation: 1, polish: 0.6 },
+    surface: { relief: 5, fine: 0.9, displace: 0.025, emit: 0.9, albedo: 0.3, saturation: 0.12, polish: 0.6 },
     ring: { inner: 1.6, outer: 1.7, glow: 0.6 },
     debris: { count: 5, color: '#8a8e9a' },
   },
   // Aceituna: green and olive country, mountains and dark valleys, ochre highlands, light cloud.
   organic: {
     type: 4, second: '#c9a23a', air: 0.45, airMix: 0.0,
-    surface: { relief: 8, fine: 0.8, displace: 0.04, emit: 0, gain: 0.6, saturation: 1, polish: 0.12 },
+    surface: { relief: 8, fine: 0.8, displace: 0.04, emit: 0.18, albedo: 0.4, saturation: 0.9, polish: 0.12 },
     clouds: { color: '#f1efe6', coverage: 0.5, scale: 2.6, opacity: 0.55 },
     debris: { count: 6, color: '#9a8466' },
   },
   // Votify: violet crystal in facets, its network of light glowing in some regions only.
   network: {
     type: 5, second: '#ff4fd0', air: 1.1, airMix: 0.25,
-    surface: { relief: 3, fine: 0.4, displace: 0.015, emit: 0, gain: 0.3, saturation: 1, polish: 0.7 },
+    surface: { relief: 3, fine: 0.4, displace: 0.015, emit: 1, albedo: 0.25, saturation: 0.9, polish: 0.7 },
   },
   // Cielith: night blue, a great vortex, violet cloud regions, a faint aurora.
   celestial: {
     type: 6, second: '#b9a6ff', air: 0.95, airMix: 0.6,
-    surface: { relief: 2, fine: 0.3, displace: 0.01, emit: 0, gain: 0.3, saturation: 1, polish: 0.25 },
+    surface: { relief: 2, fine: 0.3, displace: 0.01, emit: 0.3, albedo: 0.3, saturation: 1, polish: 0.25 },
     clouds: { color: '#8a6ad8', coverage: 0.4, scale: 2.2, opacity: 0.55, swirl: true },
     // The vortex sits high on the globe, where the tilted axis keeps it in view most of the time.
     pole: [0.3, 0.9, 0.3],
@@ -118,7 +119,7 @@ export interface PlanetSpot {
 
 const BODY_VERT = /* glsl */ `
 uniform float uMaps;
-uniform sampler2D uHeightMap;
+uniform sampler2D uDataMap;
 uniform vec4 uSurface2;
 varying vec3 vP;
 varying vec3 vView;
@@ -134,9 +135,9 @@ void main() {
     // The height map lifts the ground a little, so the edge of the planet is not a perfect circle.
     // Both sides of the 180th meridian get the same height (the maps do not tile), and the poles,
     // where many vertices meet at one point, stay put.
-    float h = 0.5 * (textureLod(uHeightMap, uv, 1.0).r + textureLod(uHeightMap, vec2(1.0 - uv.x, uv.y), 1.0).r);
+    float h = 0.5 * (textureLod(uDataMap, uv, 1.0).r + textureLod(uDataMap, vec2(1.0 - uv.x, uv.y), 1.0).r);
     float d = min(uv.x, 1.0 - uv.x);
-    float hs = mix(h, textureLod(uHeightMap, uv, 1.0).r, smoothstep(0.0, 0.03, d));
+    float hs = mix(h, textureLod(uDataMap, uv, 1.0).r, smoothstep(0.0, 0.03, d));
     pos *= 1.0 + uSurface2.z * (hs - 0.5) * smoothstep(0.95, 0.78, abs(normalize(position).y));
   }
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
@@ -169,13 +170,11 @@ uniform vec3 uPole;
 uniform float uTime;
 // The project's own texture set (equirectangular): colour, normal, height, roughness, light.
 uniform float uMaps;
-uniform sampler2D uAlbedoMap;
-uniform sampler2D uNormalMap;
-uniform sampler2D uHeightMap;
-uniform sampler2D uRoughMap;
-uniform sampler2D uEmissiveMap;
-uniform vec4 uSurface;  // relief, fine, emit, gain
-uniform vec4 uSurface2; // saturation, polish, displace, -
+uniform sampler2D uAlbedoMap;  // colour, sRGB (decoded to linear by the GPU)
+uniform sampler2D uNormalMap;  // tangent-space normal, data
+uniform sampler2D uDataMap;    // R height, G roughness, B emissive mask, data
+uniform vec4 uSurface;  // relief, fine, emit, -
+uniform vec4 uSurface2; // saturation, polish, displace, albedo share
 varying vec3 vP;
 varying vec3 vView;
 varying vec3 vX;
@@ -208,8 +207,8 @@ vec4 texAt(sampler2D m, vec2 uv) {
 vec4 tex(sampler2D m) { return texAt(m, suv); }
 float heightLod(vec2 uv, float lod) {
   float d = min(uv.x, 1.0 - uv.x);
-  float h = textureLod(uHeightMap, uv, lod).r;
-  if (d < 0.03) h = mix(textureLod(uHeightMap, vec2(1.0 - uv.x, uv.y), lod).r, h, 0.5 + 0.5 * smoothstep(0.0, 0.03, d));
+  float h = textureLod(uDataMap, uv, lod).r;
+  if (d < 0.03) h = mix(textureLod(uDataMap, vec2(1.0 - uv.x, uv.y), lod).r, h, 0.5 + 0.5 * smoothstep(0.0, 0.03, d));
   return h;
 }
 
@@ -489,20 +488,22 @@ void main() {
   }
 
   if (uMaps > 0.5) {
-    // The project's texture set adds its relief to the drawn world. Its colour and light maps are
-    // not used as colour: their patterns (blue blobs on Boost, a wavy web on Votify, spots on
-    // Cielith) work against each planet's identity. Their brightness only varies the ground a little.
+    // The project's texture set on top of the drawn world:
+    //  - relief: coarse slopes from the height (data R), detail from the normal map, hollows from
+    //    fine minus coarse height. The normal maps are computed from the heights, so the two work at
+    //    different scales instead of doubling the relief. The pack's normals keep green pointing
+    //    down (DirectX): flipped here.
+    //  - colour: the albedo map is blended into the drawn colour, by a share set per planet;
+    //  - polish: roughness (data G) sets how sharp and bright the highlights are;
+    //  - light: the emissive mask (data B) places each planet's own light (see below).
     mapCoords(p);
-    // Near the poles an equirectangular map fans out into rays: there its detail fades out.
+    // Near the poles an equirectangular map fans out into rays: there the maps give their average.
     float poleFade = smoothstep(0.74, 0.93, abs(p.y));
-    // The pack's normal maps keep green pointing down (DirectX): flipped here. They are computed
-    // from the height maps, so the two are used at two scales, not twice: coarse slopes from the
-    // height map, fine detail from the normal map, hollows from fine minus coarse height.
     vec3 nm = tex(uNormalMap).xyz * 2.0 - 1.0;
     nm.y = -nm.y;
-    vec2 size = vec2(textureSize(uHeightMap, 0));
+    vec4 dat = mix(tex(uDataMap), textureLod(uDataMap, suv, 10.0), poleFade);
+    vec2 size = vec2(textureSize(uDataMap, 0));
     vec2 e = 6.0 / size;
-    float hC = tex(uHeightMap).r;
     float hL = heightLod(suv - vec2(e.x, 0.0), 2.5);
     float hR = heightLod(suv + vec2(e.x, 0.0), 2.5);
     float hD = heightLod(suv - vec2(0.0, e.y), 2.5);
@@ -511,14 +512,38 @@ void main() {
     vec2 slope = vec2((hR - hL) / (2.0 * e.x * 6.2832 * cosLat), (hU - hD) / (2.0 * e.y * 3.1416)) * (1.0 - poleFade);
     vec3 gm = (slope.x * T + slope.y * B) * uSurface.x * 0.02;
     nObj = normalize(nObj + (T * nm.x + B * nm.y) * uSurface.y * (1.0 - poleFade) - gm);
-    float occ = clamp(1.0 + (hC - heightLod(suv, 5.0)) * 2.4 * (1.0 - poleFade), 0.6, 1.2);
-    float lm = dot(tex(uAlbedoMap).rgb, vec3(0.2126, 0.7152, 0.0722));
-    float lmAvg = dot(textureLod(uAlbedoMap, suv, 10.0).rgb, vec3(0.2126, 0.7152, 0.0722));
-    albedo *= occ * clamp(1.0 + (lm - lmAvg) / max(lmAvg, 0.05) * uSurface.w * (1.0 - poleFade), 0.65, 1.35);
-    // Roughness sets how sharp and how bright the highlights are.
-    float rough = mix(tex(uRoughMap).r, textureLod(uRoughMap, suv, 10.0).r, poleFade);
+    float occ = clamp(1.0 + (dat.r - heightLod(suv, 5.0)) * 2.4 * (1.0 - poleFade), 0.6, 1.2);
+
+    vec3 mapCol = mix(tex(uAlbedoMap).rgb, textureLod(uAlbedoMap, suv, 10.0).rgb, poleFade);
+    mapCol = mix(vec3(dot(mapCol, vec3(0.2126, 0.7152, 0.0722))), mapCol, uSurface2.x);
+    albedo = mix(albedo, mapCol, uSurface2.w) * occ;
+
+    float rough = dat.g;
     gloss *= 1.3 - rough;
     shine = mix(90.0, 10.0, rough);
+
+    float em = dat.b;
+    if (uType > 5.5) {
+      // Cielith: faint cyan glows in the dark ground.
+      emit += mix(vec3(0.25, 0.7, 1.0), uSecond, 0.4) * textureLod(uDataMap, suv, 1.5).b * uSurface.z;
+    } else if (uType > 4.5) {
+      // Votify: the mask, blurred, chooses where the crystal network is lit; elsewhere it dims.
+      float region = smoothstep(0.12, 0.4, textureLod(uDataMap, suv, 3.5).b);
+      emit *= mix(0.3, 1.0, region * uSurface.z);
+    } else if (uType > 3.5) {
+      // Aceituna: gold specks catch a little light.
+      emit += uSecond * em * uSurface.z;
+    } else if (uType > 2.5) {
+      // Boost: the mask marks fractured ground: dark depths, light along the broken edge and
+      // thin ice-blue veins inside.
+      float zone = smoothstep(0.08, 0.35, textureLod(uDataMap, suv, 1.5).b);
+      albedo = mix(albedo, vec3(0.008, 0.016, 0.05), zone * 0.9);
+      gloss *= 1.0 - zone;
+      float vein = pow(1.0 - abs(noise(p * 24.0 + uSeed) * 2.0 - 1.0), 12.0) * zone;
+      emit += mix(uSecond, vec3(0.9, 0.97, 1.0), 0.3) * (zone * (1.0 - zone) * 4.0 * 0.35 + vein * 0.9) * uSurface.z;
+    } else {
+      emit += uSecond * em * uSurface.z;
+    }
   }
   vec3 n = normalize(vX * nObj.x + vY * nObj.y + vZ * nObj.z);
   vec3 n0 = normalize(vX * p.x + vY * p.y + vZ * p.z);
@@ -638,9 +663,10 @@ const ROCK_VERT = /* glsl */ `
 varying vec3 vN;
 float h(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 void main() {
-  vec3 p = position * (0.78 + 0.4 * h(floor(position * 3.0)));
-  vN = normalize(normalMatrix * normal);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  // All of a planet's rocks are one instanced draw: each instance has its own place, turn and size.
+  vec3 p = position * (0.78 + 0.4 * h(floor(position * 3.0) + instanceMatrix[3].xyz));
+  vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
 }`;
 const ROCK_FRAG = /* glsl */ `
 uniform vec3 uColor;
@@ -719,6 +745,11 @@ interface Body {
   /** The project's texture set: not asked for, waiting for the orbit to open, loading, or in use. */
   maps: 'none' | 'wanted' | 'loading' | 'done';
   textures: Texture[];
+  /** Width of the texture set on the GPU now (0 for none), and of the one being fetched. */
+  res: number;
+  fetching: number;
+  /** Cancels the fetch in flight. */
+  abort: AbortController | null;
   size: number;
   /** Orbit, in Moon radii and radians. */
   orbit: { a: number; e: number; incl: number; node: number; angle: number; speed: number; spin: number };
@@ -760,22 +791,22 @@ export class PlanetSystem {
   private moonSphere = new Sphere();
   private otherSphere = new Sphere();
 
-  private quality: 'high' | 'low';
+  private quality: 'high' | 'medium' | 'low';
 
   /** Sends one texture to the GPU now (the renderer's initTexture). */
   private upload: (t: Texture) => void;
 
-  constructor(quality: 'high' | 'low', upload: (t: Texture) => void) {
+  constructor(quality: 'high' | 'medium' | 'low', upload: (t: Texture) => void) {
     this.quality = quality;
     this.upload = upload;
-    this.sphere = new SphereGeometry(1, quality === 'high' ? 64 : 40, quality === 'high' ? 44 : 28);
+    this.sphere = new SphereGeometry(1, quality === 'high' ? 64 : quality === 'medium' ? 40 : 32, quality === 'high' ? 44 : quality === 'medium' ? 28 : 22);
     this.octaves = quality === 'high' ? 5 : 3;
     this.group.visible = false;
   }
 
   get ids() { return this.bodies.map((b) => b.def.id); }
   /** Every texture set asked for is on the GPU (or has failed and fallen back). */
-  get ready() { return this.bodies.length > 0 && this.bodies.every((b) => b.maps === 'done' || b.maps === 'none') && this.queue.length === 0; }
+  get ready() { return this.bodies.length > 0 && this.bodies.every((b) => b.maps === 'done' || b.maps === 'none') && this.queue.length === 0 && this.active === 0; }
   has(id: string) { return this.bodies.some((b) => b.def.id === id && b.shown); }
 
   /** Build the planets for these projects. Planets already built for the same id are kept. */
@@ -790,27 +821,122 @@ export class PlanetSystem {
     }
     this.bodies.sort((a, b) => a.def.rank - b.def.rank);
     this.layout(false);
-    // Texture sets are fetched and decoded while the browser is idle, long before the orbit is
-    // reached, so arriving at the section costs nothing.
-    const later = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 1200));
-    for (const b of this.bodies) if (b.maps === 'wanted') later(() => void this.loadMaps(b));
+  }
+
+  // ---- Texture sets: streamed by priority ----
+  // 1. Nothing is fetched until the projects section is near (prefetch).
+  // 2. Then each planet's small set (512 wide), most important planet first, two at a time.
+  // 3. A planet the visitor selects gets its large set (1024), ahead of everything else.
+  // Every fetch can be cancelled (leaving the page); results for a removed planet are thrown away.
+  // Decoding happens off the main thread; textures go to the GPU one per frame.
+
+  /** Width of the set used in the general view, and the one for a selected planet. */
+  private get small() { return 512; }
+  private get large() { return this.quality === 'low' ? 512 : 1024; }
+  private wanted: { body: Body; width: number }[] = [];
+  private active = 0;
+
+  /** The section is near: fetch every planet's small set. */
+  prefetch() {
+    for (const b of this.bodies) if (b.maps === 'wanted' && !b.fetching && b.res === 0) this.request(b, this.small, false);
+  }
+
+  /** A planet is selected: its large set goes first. */
+  sharpen(id: string) {
+    const b = this.bodies.find((x) => x.def.id === id);
+    if (!b || b.maps === 'none' || b.res >= this.large || b.fetching >= this.large) return;
+    this.request(b, this.large, true);
+  }
+
+  /** Leaving the page: stop every fetch in flight and forget the ones waiting. */
+  cancel() {
+    this.wanted = [];
+    for (const b of this.bodies) {
+      b.abort?.abort();
+      b.abort = null;
+      if (b.fetching) { b.fetching = 0; if (b.maps === 'loading') b.maps = b.res ? 'done' : 'wanted'; }
+    }
+  }
+
+  private request(b: Body, width: number, first: boolean) {
+    this.wanted = this.wanted.filter((w) => w.body !== b);
+    if (first) this.wanted.unshift({ body: b, width }); else this.wanted.push({ body: b, width });
+    this.pump();
+  }
+
+  private pump() {
+    while (this.active < 2 && this.wanted.length) {
+      const { body, width } = this.wanted.shift()!;
+      if (body.gone || body.res >= width) continue;
+      this.active++;
+      void this.fetchSet(body, width).finally(() => { this.active--; this.pump(); });
+    }
+  }
+
+  private async fetchSet(b: Body, width: number) {
+    b.abort?.abort();
+    const abort = new AbortController();
+    b.abort = abort;
+    b.fetching = width;
+    if (b.maps === 'wanted') b.maps = 'loading';
+    const urls = ['albedo', 'normal', 'data'].map((n) => `/textures/planets/${b.def.id}_${n}_${width}.webp`);
+    // Decoded off the main thread, flipped there, and with no colour conversion: data maps must
+    // arrive exactly as stored.
+    const decode = async (url: string) => {
+      const res = await fetch(url, { signal: abort.signal });
+      if (!res.ok) throw new Error(String(res.status));
+      return createImageBitmap(await res.blob(), { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+    };
+    const results = await Promise.allSettled(urls.map(decode));
+    const bitmaps = results.map((r) => (r.status === 'fulfilled' ? r.value : null));
+    const stale = b.gone || abort.signal.aborted || b.abort !== abort;
+    if (b.abort === abort) b.abort = null;
+    if (stale || bitmaps.some((x) => !x)) {
+      bitmaps.forEach((x) => x?.close());
+      if (stale) return;
+      b.fetching = 0;
+      // A missing small set leaves the drawn surface; a missing large one keeps the small set.
+      if (!b.res) b.maps = 'none'; else b.maps = 'done';
+      for (const [i, url] of urls.entries()) if (!bitmaps[i]) console.warn(`[planets] ${b.def.id}: could not load ${url} (${await whyNot(url)}). ${b.res ? 'Keeping the smaller set.' : 'Keeping the drawn surface.'}`);
+      return;
+    }
+    const maps = (bitmaps as ImageBitmap[]).map((bitmap, i) => {
+      const t = new Texture(bitmap);
+      t.flipY = false;
+      // Albedo is colour (sRGB, decoded to linear by the GPU when sampled); the others are data.
+      t.colorSpace = i === 0 ? SRGBColorSpace : NoColorSpace;
+      t.wrapS = RepeatWrapping;
+      t.wrapT = ClampToEdgeWrapping;
+      t.minFilter = LinearMipmapLinearFilter;
+      t.magFilter = LinearFilter;
+      t.anisotropy = this.quality === 'high' ? 4 : 2;
+      t.generateMipmaps = true;
+      t.needsUpdate = true;
+      return t;
+    });
+    this.queue.push({ body: b, maps, next: 0, width });
   }
 
   /** Decoded maps waiting to go to the GPU, one per frame, so no frame does all the work. */
-  private queue: { body: Body; maps: Texture[]; next: number }[] = [];
+  private queue: { body: Body; maps: Texture[]; next: number; width: number }[] = [];
 
   private uploadOne() {
     const job = this.queue[0];
     if (!job) return;
-    if (job.body.gone) { job.maps.forEach((t) => t.dispose()); this.queue.shift(); return; }
+    if (job.body.gone || job.body.res >= job.width) { job.maps.forEach((t) => { (t.image as ImageBitmap).close?.(); t.dispose(); }); this.queue.shift(); return; }
     this.upload(job.maps[job.next++]);
     if (job.next < job.maps.length) return;
     this.queue.shift();
     const b = job.body;
+    // Swap only once the whole new set is on the GPU, then free the old one: no flicker.
+    const old = b.textures;
     b.textures = job.maps;
     const u = b.body.material.uniforms;
-    [u.uAlbedoMap.value, u.uNormalMap.value, u.uHeightMap.value, u.uRoughMap.value, u.uEmissiveMap.value] = job.maps;
+    [u.uAlbedoMap.value, u.uNormalMap.value, u.uDataMap.value] = job.maps;
     u.uMaps.value = 1;
+    old.forEach((t) => { (t.image as ImageBitmap).close?.(); t.dispose(); });
+    b.res = job.width;
+    if (b.fetching === job.width) b.fetching = 0;
     b.maps = 'done';
   }
 
@@ -864,7 +990,7 @@ export class PlanetSystem {
     // The kinds of surface take turns down the list, so neighbours never look alike.
     const look = def.look ? LOOKS[def.look] : null;
     const type = look ? look.type : (def.rank + Math.floor(seeded('orbit')() * 3)) % 3;
-    const sf = look?.surface ?? { relief: 4, fine: 0.8, displace: 0.02, emit: 0.6, gain: 1, saturation: 1, polish: 0.3 };
+    const sf = look?.surface ?? { relief: 4, fine: 0.8, displace: 0.02, emit: 0.6, albedo: 0.6, saturation: 1, polish: 0.3 };
     // Planets without a designed look: banded giants get a wide ring of their own colours.
     const ringConfig = look ? look.ring : type === 1 ? { inner: 1.4, outer: 2.25, glow: 0 } : undefined;
     const size = def.size
@@ -904,11 +1030,9 @@ export class PlanetSystem {
         uMaps: { value: 0 },
         uAlbedoMap: { value: null },
         uNormalMap: { value: null },
-        uHeightMap: { value: null },
-        uRoughMap: { value: null },
-        uEmissiveMap: { value: null },
-        uSurface: { value: new Vector4(sf.relief, sf.fine, sf.emit, sf.gain) },
-        uSurface2: { value: new Vector4(sf.saturation, sf.polish, this.quality === 'high' ? sf.displace : 0, 0) },
+        uDataMap: { value: null },
+        uSurface: { value: new Vector4(sf.relief, sf.fine, sf.emit, 0) },
+        uSurface2: { value: new Vector4(sf.saturation, sf.polish, this.quality === 'high' ? sf.displace : 0, sf.albedo) },
       },
     }));
     const air = new Mesh(this.sphere, new ShaderMaterial({
@@ -946,7 +1070,8 @@ export class PlanetSystem {
     }
 
     let clouds: Body['clouds'] = null;
-    if (look?.clouds) {
+    // Low-end devices skip the secondary layers: the planet itself keeps its identity.
+    if (look?.clouds && this.quality !== 'low') {
       const c = look.clouds;
       clouds = new Mesh(this.sphere, new ShaderMaterial({
         vertexShader: CLOUD_VERT,
@@ -973,7 +1098,7 @@ export class PlanetSystem {
 
     let debris: Object3D | null = null;
     let rockMaterial: ShaderMaterial | null = null;
-    if (look?.debris) {
+    if (look?.debris && this.quality !== 'low') {
       rockMaterial = new ShaderMaterial({
         vertexShader: ROCK_VERT,
         fragmentShader: ROCK_FRAG,
@@ -981,15 +1106,20 @@ export class PlanetSystem {
       });
       debris = new Object3D();
       debris.rotation.set(0.5, 0, 0.25);
+      const rocks = new InstancedMesh(this.rock, rockMaterial, look.debris.count);
+      const place = new Object3D();
       for (let i = 0; i < look.debris.count; i++) {
-        const rock = new Mesh(this.rock, rockMaterial);
         const a = (i / look.debris.count) * Math.PI * 2 + rnd() * 0.8;
         const r = 1.35 + rnd() * 0.4;
-        rock.position.set(Math.cos(a) * r, (rnd() - 0.5) * 0.25, Math.sin(a) * r);
-        rock.scale.set(0.025 + rnd() * 0.03, 0.02 + rnd() * 0.02, 0.025 + rnd() * 0.025);
-        rock.rotation.set(rnd() * 6, rnd() * 6, rnd() * 6);
-        debris.add(rock);
+        place.position.set(Math.cos(a) * r, (rnd() - 0.5) * 0.25, Math.sin(a) * r);
+        place.scale.set(0.025 + rnd() * 0.03, 0.02 + rnd() * 0.02, 0.025 + rnd() * 0.025);
+        place.rotation.set(rnd() * 6, rnd() * 6, rnd() * 6);
+        place.updateMatrix();
+        rocks.setMatrixAt(i, place.matrix);
       }
+      // The rocks' bounds are not the base shape's: never cull them on that.
+      rocks.frustumCulled = false;
+      debris.add(rocks);
       holder.add(debris);
     }
     this.group.add(holder);
@@ -1006,6 +1136,9 @@ export class PlanetSystem {
       gone: false,
       maps: def.textures ? 'wanted' : 'none',
       textures: [],
+      res: 0,
+      fetching: 0,
+      abort: null,
       size,
       orbit: {
         a: SLOT0,
@@ -1040,54 +1173,10 @@ export class PlanetSystem {
     }
   }
 
-  /** Load a project's five maps (only once the orbit is on screen) and hand them to its material.
-   *  Until they are all in, and if any is missing, the planet keeps its drawn surface. Each failure
-   *  is reported with the file and the reason. */
-  private async loadMaps(b: Body) {
-    if (b.maps !== 'wanted') return;
-    b.maps = 'loading';
-    const names = ['albedo', 'normal', 'height', 'roughness', 'emissive'] as const;
-    const urls = names.map((n) => `/textures/planets/${b.def.id}_${n}.png`);
-    // Decoded off the main thread (createImageBitmap), flipped there too, and with no colour
-    // conversion: data maps must arrive exactly as stored.
-    const decode = async (url: string) => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(String(res.status));
-      const bitmap = await createImageBitmap(await res.blob(), { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
-      const t = new Texture(bitmap);
-      t.flipY = false;
-      return t;
-    };
-    const results = await Promise.allSettled(urls.map(decode));
-    const maps = results.map((r) => (r.status === 'fulfilled' ? r.value : null));
-    const failed = urls.filter((_, i) => !maps[i]);
-    if (b.gone || failed.length) {
-      maps.forEach((t) => t?.dispose());
-      if (!b.gone) {
-        b.maps = 'none';
-        for (const url of failed) console.warn(`[planets] ${b.def.id}: could not load ${url} (${await whyNot(url)}). Keeping the drawn surface.`);
-      }
-      return;
-    }
-    const loaded = maps as Texture[];
-    loaded.forEach((t, i) => {
-      // Albedo is colour (sRGB, decoded to linear by the GPU when sampled); normal, height,
-      // roughness and the emissive mask are plain data.
-      t.colorSpace = i === 0 ? SRGBColorSpace : NoColorSpace;
-      t.wrapS = RepeatWrapping;
-      t.wrapT = ClampToEdgeWrapping;
-      t.minFilter = LinearMipmapLinearFilter;
-      t.magFilter = LinearFilter;
-      t.anisotropy = 4;
-      t.generateMipmaps = true;
-      t.needsUpdate = true;
-    });
-    this.queue.push({ body: b, maps: loaded, next: 0 });
-  }
-
   private drop(b: Body) {
     b.gone = true;
-    b.textures.forEach((t) => t.dispose());
+    b.abort?.abort();
+    b.textures.forEach((t) => { (t.image as ImageBitmap).close?.(); t.dispose(); });
     b.textures = [];
     b.clouds?.material.dispose();
     b.rockMaterial?.dispose();
