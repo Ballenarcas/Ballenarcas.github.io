@@ -12,8 +12,10 @@ import {
   Matrix3,
   Matrix4,
   Mesh,
+  Object3D,
   PerspectiveCamera,
   PlaneGeometry,
+  Quaternion,
   Points,
   Scene,
   ShaderMaterial,
@@ -38,7 +40,7 @@ export interface OrbitState {
   travel: number;
 }
 
-export type Quality = 'high' | 'low';
+export type Quality = 'high' | 'medium' | 'low';
 
 const MOON_VERT = /* glsl */ `
 varying vec2 vUv;
@@ -447,6 +449,9 @@ void main() {
 }`;
 
 const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+const UP = new Vector3(0, 1, 0);
+/** The camera's drift round the Moon for a progress through the orbit: a few degrees, no more. */
+const orbitYaw = (s: number) => 0.35 + s * 0.3;
 
 export class MoonScene implements SpaceRenderer {
   readonly ready: Promise<void>;
@@ -464,7 +469,6 @@ export class MoonScene implements SpaceRenderer {
   private view = new Matrix4();
   private planets: PlanetSystem;
   private moonAt = new Vector3();
-  private lean = new Vector3();
   private focusYaw = 0;
   private prevTime = -1;
   private weight = 0;
@@ -491,19 +495,19 @@ export class MoonScene implements SpaceRenderer {
 
   constructor(private canvas: HTMLCanvasElement, private quality: Quality) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-    this.pixelRatio = Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : 1.5);
+    this.pixelRatio = Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setClearColor(0x000000, 0);
     this.detail = quality === 'high' ? 1 : 0;
     applyRig(this.camera, this.director.update(this.explore, 0));
 
-    this.stars = this.makeStars(quality === 'high' ? 1500 : 650);
+    this.stars = this.makeStars(quality === 'high' ? 1500 : quality === 'medium' ? 650 : 400);
     this.glow = new Mesh(
       new PlaneGeometry(1, 1),
       new ShaderMaterial({ vertexShader: GLOW_VERT, fragmentShader: GLOW_FRAG, uniforms: { uStrength: { value: 0 }, uEclipse: { value: 0 }, uSun: { value: new Vector2() }, uTime: { value: 0 }, uNear: { value: 0 }, uQuality: { value: quality === 'high' ? 1 : 0 }, uOrbit: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false, blending: AdditiveBlending }),
     );
     this.moon = new Mesh(
-      new SphereGeometry(1, quality === 'high' ? 128 : 72, quality === 'high' ? 96 : 54),
+      new SphereGeometry(1, quality === 'high' ? 128 : quality === 'medium' ? 72 : 56, quality === 'high' ? 96 : quality === 'medium' ? 54 : 40),
       new ShaderMaterial({
         vertexShader: MOON_VERT,
         fragmentShader: MOON_FRAG,
@@ -528,16 +532,25 @@ export class MoonScene implements SpaceRenderer {
     this.stars.renderOrder = 0;
     this.glow.renderOrder = 1;
     this.moon.renderOrder = 2;
-    this.planets = new PlanetSystem(quality);
+    this.planets = new PlanetSystem(quality, (t) => this.renderer.initTexture(t));
     this.scene.add(this.stars, this.glow, this.moon, this.planets.group);
 
     canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
 
-    this.ready = this.loadMap('/textures/moon-2k.webp').then(() => {
+    // A light 1K map first, so the Moon appears quickly even on a slow connection; the 2K map
+    // replaces it as soon as it arrives (and the 4K one later, where it is worth it).
+    this.ready = this.loadMap('/textures/moon-1k.webp').then(() => {
       this.moon.visible = true;
+      void this.loadMap('/textures/moon-2k.webp').catch(() => undefined);
       // The measured relief comes after the first picture; until then the surface is smooth.
-      void this.loadHeight('/textures/moon-relief-2k.webp').catch(() => undefined);
-      if (quality === 'high') {
+      // Phones get the 1K relief: the Moon is never large enough there for the 2K one to show.
+      void this.loadHeight(quality === 'high' ? '/textures/moon-relief-2k.webp' : '/textures/moon-relief-1k.webp').catch(() => undefined);
+      // The 4K map is a later improvement, only where the screen can show it and the connection
+      // is not slow or saving data.
+      const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+      const bigScreen = Math.max(innerWidth, innerHeight) * (devicePixelRatio || 1) >= 2200;
+      const fastNet = !conn || (!conn.saveData && !/(^|-)(2g|3g)$/.test(conn.effectiveType ?? ''));
+      if (quality === 'high' && bigScreen && fastNet) {
         const upgrade = () => void this.loadMap('/textures/moon-4k.webp').catch(() => undefined);
         if ('requestIdleCallback' in window) requestIdleCallback(upgrade, { timeout: 4000 });
         else setTimeout(upgrade, 2500);
@@ -545,14 +558,22 @@ export class MoonScene implements SpaceRenderer {
     });
   }
 
+  /** Width of the Moon map in use: a map only ever replaces a smaller one, whatever order they arrive in. */
+  private mapWidth = 0;
+
   private async loadMap(url: string) {
     const texture = await new TextureLoader().loadAsync(url);
+    const width = (texture.image as { width: number }).width;
+    if (width <= this.mapWidth) { texture.dispose(); return; }
+    this.mapWidth = width;
     texture.colorSpace = SRGBColorSpace;
     texture.wrapS = RepeatWrapping;
     texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     texture.minFilter = LinearMipmapLinearFilter;
     texture.magFilter = LinearFilter;
     texture.generateMipmaps = true;
+    // Uploaded now, then swapped in: the change of map never shows as a gap or a pause mid-scroll.
+    this.renderer.initTexture(texture);
     const u = this.moon.material.uniforms;
     u.uMap.value = texture;
     this.map?.dispose();
@@ -625,13 +646,21 @@ export class MoonScene implements SpaceRenderer {
     this.moon.scale.setScalar(radius);
     this.euler.set(f.tilt + f.pointer[1] * -0.015, -Math.PI / 2 + f.spin + f.time * 0.004 + f.pointer[0] * 0.02, 0.06, 'XYZ');
     this.moon.rotation.copy(this.euler);
+    // Leaving the orbit, the camera goes back to its plain place in front of the Moon. Unwinding its
+    // trip round would spin everything backwards, so the Moon and the planets turn with it instead
+    // and nothing is seen to rotate: the view simply pulls back.
+    const through = f.orbitProgress;
+    const on = f.orbit * f.orbit * (3 - 2 * f.orbit);
+    const leaving = Math.min(1, Math.max(0, (through - 0.75) / 0.25));
+    const carried = -(leaving * leaving * (3 - 2 * leaving)) * (orbitYaw(1) - on * orbitYaw(through));
+    this.moon.quaternion.premultiply(this.turnY.setFromAxisAngle(UP, carried));
     this.moon.updateMatrixWorld();
 
     const dt = this.prevTime < 0 ? 0 : Math.min(0.1, Math.max(0, f.time - this.prevTime));
     this.prevTime = f.time;
     this.weight = f.orbit;
     this.moonAt.set(x, y, 0);
-    this.planets.update({ dt, weight: f.orbit, progress: f.orbitProgress, moon: this.moonAt, moonRadius: radius });
+    this.planets.update({ dt, weight: f.orbit, progress: f.orbitProgress, moon: this.moonAt, moonRadius: radius, turn: carried });
     this.camera.aspect = this.aspect;
     applyRig(this.camera, this.director.update(this.wanted(f.orbit, f.orbitProgress), dt));
     // The shading works in view space: the Moon's turn as the camera sees it.
@@ -680,11 +709,12 @@ export class MoonScene implements SpaceRenderer {
     // The stars turn with the camera, so a move round the Moon reads as travel.
     const rig = this.director.rig;
     const s = this.stars.material.uniforms;
-    (s.uShift.value as Vector2).set(f.pointer[0] * -0.006 - rig.yaw * 0.08, f.screens * 0.05 + f.pointer[1] * -0.006 + rig.pitch * 0.12);
+    (s.uShift.value as Vector2).set(f.pointer[0] * -0.006 - (rig.yaw - carried) * 0.08, f.screens * 0.05 + f.pointer[1] * -0.006 + rig.pitch * 0.12);
     s.uTime.value = f.time;
     s.uFade.value = Math.min(1, f.intro * 2.2);
 
     this.renderer.render(this.scene, this.camera);
+    this.warm();
     this.report();
     this.watch(f);
   }
@@ -705,26 +735,17 @@ export class MoonScene implements SpaceRenderer {
     return this.explore;
   }
 
-  /** The exploration: the camera circles the Moon as the section scrolls, dipping towards the plane of
-   *  the orbits half-way, and leans towards one planet after another as their moments come. */
+  /** The exploration: the system comes in, holds still while the section scrolls, and goes. */
   private makeOrbitRig(s: number) {
     const r = this.orbitRig;
-    const R = this.moon.scale.x;
-    const reach = this.planets.reach * R;
-    const planets = this.planets.shownWorld();
-    this.lean.set(0, 0, 0);
-    let spot = 0;
-    planets.forEach((p, k) => {
-      const at = 0.14 + (0.72 * (k + 0.5)) / planets.length;
-      const w = Math.exp(-(((s - at) / 0.1) ** 2));
-      this.lean.addScaledVector(this.tmpV.copy(p).sub(this.moonAt), w);
-      spot += w;
-    });
-    r.target.copy(this.moonAt).addScaledVector(this.lean, 0.5);
-    r.yaw = 0.35 + s * Math.PI * 1.5;
-    r.pitch = 0.42 + (0.3 - 0.42) * s - 0.26 * Math.sin(Math.PI * s);
-    const fit = Math.min(2.4, Math.max(1, (reach * 1.02) / this.aspect));
-    r.frame = fit * (1 - 0.3 * Math.min(1, spot));
+    const reach = this.planets.reach * this.moon.scale.x;
+    // A steady view of the whole system, centred on the Moon: no zoom, no lean, only a slow drift round.
+    r.target.copy(this.moonAt);
+    r.yaw = orbitYaw(s);
+    r.pitch = 0.36;
+    // Wide enough for the outermost orbit with room to spare, so the system is seen from afar.
+    // On tall screens the view stops short of that, or the planets would be specks.
+    r.frame = Math.min(this.aspect < 0.85 ? 2.1 : 3, Math.max(1.25, (reach * 1.12) / this.aspect));
     r.fov = 30;
     r.shiftX = 0;
     r.shiftY = 0;
@@ -737,9 +758,13 @@ export class MoonScene implements SpaceRenderer {
     if (!p) return null;
     const r = this.focusRig;
     const tall = this.aspect < 0.85;
-    r.target.copy(p.at);
+    // Still centred on the Moon: the camera stands on the line from the Moon through the planet,
+    // beyond the planet, so following it round its orbit is a turn about the Moon.
+    r.target.copy(this.moonAt);
     const out = this.tmpV.copy(p.at).sub(this.moonAt);
-    this.focusYaw = nearAngle(Math.atan2(out.x, out.z) + 0.5, this.focusYaw);
+    r.out = Math.hypot(out.x, out.z);
+    r.lift = out.y;
+    this.focusYaw = nearAngle(Math.atan2(out.x, out.z), this.focusYaw);
     r.yaw = this.focusYaw;
     // From a little above the plane of the orbits, so the other planets pass below the line of sight.
     r.pitch = 0.4;
@@ -751,6 +776,7 @@ export class MoonScene implements SpaceRenderer {
   }
 
   private tmpV = new Vector3();
+  private turnY = new Quaternion();
 
   /** Tell the page where the planets are. */
   private report() {
@@ -771,7 +797,43 @@ export class MoonScene implements SpaceRenderer {
 
   get busy() { return this.weight > 0.001 || !this.director.settled; }
 
-  setPlanets(defs: PlanetDef[]) { this.planets.set(defs); }
+  setPlanets(defs: PlanetDef[]) {
+    this.planets.set(defs);
+    // Compile the planets' shaders now, in the background where the browser allows it, instead of
+    // in the first frame they are seen. Hidden objects are skipped by the compiler, so the system
+    // is shown just for the call.
+    const shown = this.planets.group.visible;
+    this.planets.group.visible = true;
+    if (this.renderer.extensions.has('KHR_parallel_shader_compile')) void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
+    else this.renderer.compile(this.scene, this.camera);
+    this.planets.group.visible = shown;
+    // Warm-up at the first idle moment after load, not when the section approaches: the shader
+    // programs do not depend on the textures, and the visitor is not scrolling yet.
+    this.warmed = true;
+    const due = () => { this.warmed = false; };
+    if ('requestIdleCallback' in window) requestIdleCallback(due, { timeout: 4000 }); else setTimeout(due, 2000);
+  }
+
+  /** Draw the whole system once into a single pixel, far from the orbit, so the driver finishes
+   *  preparing every shader before the first frame that shows the planets. */
+  private warmed = true;
+  private warm() {
+    if (this.warmed || this.weight > 0.001) return;
+    this.warmed = true;
+    // Show everything for the one draw, then put every object's visibility back as it was.
+    const shown: [Object3D, boolean][] = [];
+    this.planets.group.traverse((o) => { shown.push([o, o.visible]); o.visible = true; });
+    this.renderer.setScissorTest(true);
+    this.renderer.setScissor(0, 0, 1, 1);
+    this.renderer.render(this.scene, this.camera);
+    this.renderer.setScissorTest(false);
+    for (const [o, v] of shown) o.visible = v;
+  }
+
+  /** The projects section is near: start streaming the planets' textures. */
+  prefetchPlanets() { this.planets.prefetch(); }
+  /** Leaving the page: stop fetching. */
+  cancelPlanetLoads() { this.planets.cancel(); }
   showPlanets(ids: string[]) {
     this.planets.show(ids);
     // The framing of the exploration changes with the planets on show: blend into it, never cut.
@@ -788,6 +850,8 @@ export class MoonScene implements SpaceRenderer {
     if (id && !current) this.focusYaw = this.director.rig.yaw;
     this.director.follow(id ? { kind: 'focus', id } : { kind: 'explore' }, id ? 1.9 : 1.6);
     this.planets.focus(id);
+    // Close up, the planet gets its large texture set.
+    if (id) this.planets.sharpen(id);
   }
 
   /** The planet under a point of the screen, in CSS pixels. */

@@ -1,6 +1,6 @@
 ---
 import { t, type Lang, type UiKey } from '../i18n/ui';
-interface Props { lang: Lang; status: 'completed' | 'in-progress' | 'archived' }
+interface Props { lang: Lang; status: 'completed' | 'in-progress' | 'archived' | 'private' }
 const { lang, status } = Astro.props;
 ---
 <span class="status hud" data-status={status}><i></i>{t(lang, `status.${status}` as UiKey)}</span>

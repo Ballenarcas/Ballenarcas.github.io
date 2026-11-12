@@ -39,6 +39,9 @@ Projects are data. Nothing about a project is written in a component.
    | `accent` | Colour of the project's planet |
    | `repo`, `demo` | Links. Leave `demo` out when there is none |
    | `draft` | `true` hides the project from the published site |
+   | `planet`, `accent2`, `planetSize` | Optional. The planet's designed look in the 3D orbit (`tech`, `organic`, `network`, `celestial`), its second colour and its size. Without `planet`, a surface is picked automatically |
+   | `planetTextures` | `true` when the project has a texture set: put its five maps in `assets-src/planets/<slug>_{albedo,normal,height,roughness,emissive}.png` and run `python3 tools/pack_planet_textures.py`. They become `public/textures/planets/<slug>_{albedo,normal,data}_{512,1024}.webp` (data = height, roughness and emissive in one image). Without them, or until they load, the surface is drawn by the shader |
+   | `status: "private"` | The project shows only its name and summary: no page, no links, no stack. `repo`, `cover` and `tagline` can then be left out |
 
 4. **Push to `main`.** The project appears among the expeditions, gets its own page in both languages and joins the "next expedition" chain.
 
@@ -79,19 +82,29 @@ One value, `eclipse`, goes from 0 (full violet Moon) to 1 (total eclipse) with t
 With the 3D scene, the expeditions section is a pinned stage the scroll travels through: every published project is a planet circling the Moon. Nothing is written per project: size, orbit, surface (rock, banded gas or ice), ring and colour come from the project's data (`featured`, `order`, `accent`, its slug as a seed). Add a project and it gets a planet.
 
 - **One camera, one owner.** `camera.ts` describes a camera as a rig (what it looks at, from where, how much fits on screen). The director follows one source at a time, the exploration (the scroll through the section) or one planet. Any change starts from the camera as it is at that moment and blends into the new source, so quick clicks, planet to planet, closing and scrolling during a focus never jump.
-- **Exploration**: the progress is measured on the section itself. The camera circles the Moon, dips towards the plane of the orbits half-way and leans towards each planet in turn.
+- **Exploration**: the progress is measured on the section itself. The system of planets comes in as the section arrives, holds a steady view centred on the Moon while it scrolls (no zoom, a few degrees of drift) and goes as it leaves. The planets keep turning on their orbits by themselves.
 - **Focus**: a click, a tap or Enter on a planet's label flies the camera to it, follows it round its orbit and opens its panel; the scroll keeps working. Escape, the close button or clicking empty sky go back to the composition of the current scroll position. Leaving the section closes it.
 - Without 3D (2D, reduced motion, no script) the section is the list of expeditions, as before.
 
 ## How the scene adapts
 
-- **Full 3D**: desktop computers. 4K Moon map and fine surface grain up close.
-- **Light 3D**: phones and modest computers. 2K map, fewer stars.
-- **2D**: no WebGL, very little memory or data-saver mode. A picture of the violet Moon moved with CSS; it darkens and gains a violet glow with the eclipse (a flat picture cannot show the shadow advancing).
-- **Reduced motion**: a still full violet Moon over the first screen, no eclipse and no animation.
+- **High** (computers): 2K Moon map, then 4K when the screen is large and the connection fast; 2K relief; full planets.
+- **Medium** (phones and tablets): 2K Moon map, 1K relief, pixel ratio up to 1.5, lighter geometry.
+- **Low** (little memory or 4 cores or fewer): as medium, pixel ratio 1, fewer stars, planets without cloud layers and rocks, and only their small texture sets.
+- **2D**: no WebGL, very little memory or data-saver mode. A picture of the violet Moon moved with CSS.
+- **Reduced motion**: a still full violet Moon over the first screen, no eclipse and no animation; the projects are a list.
 - If frames arrive late, the scene lowers its own quality.
 
-Add `?high`, `?low` or `?flat` to the address to force one of them while testing.
+Add `?high`, `?medium`, `?low` or `?flat` to the address to force one of them while testing.
+
+### Loading order
+
+1. The page, its text and its links: they never wait for WebGL.
+2. The 3D Moon, with a light 1K map (110 KB) so it appears quickly; the 2K map and the relief follow, the 4K map last where it is worth it. A map only ever replaces a smaller one.
+3. The planets' textures, only when the projects section is about a screen and a half away: a small set per planet (512 wide), most important first, two at a time, decoded off the main thread and sent to the GPU one per frame.
+4. A selected planet's large set (1024), ahead of everything else.
+
+Fetches are cancelled when leaving the page. The planets' shaders are compiled when they are set up, and drawn once into one pixel at the first idle moment, so the first frame that shows them is not the one that prepares them.
 
 ## Credits
 

@@ -2,7 +2,7 @@
 // the project panel and Escape. It never moves the camera itself: it asks the scene,
 // whose single director owns the camera.
 import type { MoonScene, OrbitState } from './space/scene';
-import type { PlanetDef } from './space/planets';
+import type { Look, PlanetDef } from './space/planets';
 
 export function orbitUi(scene: MoonScene): () => void {
   const stage = document.querySelector<HTMLElement>('[data-orbit-stage]');
@@ -24,9 +24,19 @@ export function orbitUi(scene: MoonScene): () => void {
     accent: b.dataset.accent!,
     featured: b.dataset.featured === 'true',
     rank: i,
+    look: (b.dataset.look as Look) || undefined,
+    accent2: b.dataset.accent2 || undefined,
+    size: (b.dataset.size as PlanetDef['size']) || undefined,
+    textures: b.dataset.textures === 'true',
   }));
   scene.setPlanets(defs);
   scene.showPlanets(defs.map((d) => d.id));
+  // Textures are fetched only when the section comes near (a screen and a half away).
+  const track = document.querySelector('[data-orbit-track]');
+  const near = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) { scene.prefetchPlanets(); near.disconnect(); }
+  }, { rootMargin: '150% 0px 150% 0px' });
+  if (track) near.observe(track);
 
   /** Select a planet (or none). The panel comes in once the camera is well on its way. */
   const select = (id: string | null, from: HTMLElement | null = null) => {
@@ -117,6 +127,8 @@ export function orbitUi(scene: MoonScene): () => void {
   document.addEventListener('keydown', onKey);
 
   return () => {
+    near.disconnect();
+    scene.cancelPlanetLoads();
     clearTimeout(openTimer);
     document.removeEventListener('keydown', onKey);
     scene.onOrbit = null;

@@ -4,16 +4,17 @@
 // Without it (no WebGL, reduced motion, no script) the same projects are a list of expeditions.
 // Both are built from the data files, featured projects first.
 import { t, type Lang } from '../i18n/ui';
-import { slugOf, type Project } from '../lib';
+import { isPrivate, slugOf, type Project } from '../lib';
 import Expedition from './Expedition.astro';
 import OrbitCard from './OrbitCard.astro';
 import SceneLabel from './SceneLabel.astro';
 interface Props { lang: Lang; projects: Project[] }
 const { lang, projects } = Astro.props;
-const featured = projects.filter((p) => p.data.featured);
-const rest = projects.filter((p) => !p.data.featured);
-// Length of the journey through the orbit, in screens: more planets, a longer trip.
-const screens = (2.5 + 0.8 * projects.length).toFixed(2);
+// In the list, a private project takes the short form: it has nothing to open.
+const featured = projects.filter((p) => p.data.featured && !isPrivate(p));
+const rest = projects.filter((p) => !featured.includes(p));
+// How long the system stays on screen, in screens of scroll: a little longer with more planets.
+const screens = (1.9 + 0.2 * projects.length).toFixed(2);
 ---
 <section class="scene expeditions" id="expeditions" data-pose="projects">
   <div class="orbit-track" data-orbit-track style={`--screens:${screens}`}>
@@ -30,6 +31,7 @@ const screens = (2.5 + 0.8 * projects.length).toFixed(2);
           {projects.map((p, i) => (
             <li>
               <button type="button" class="orbit-label" data-planet={slugOf(p)} data-accent={p.data.accent} data-featured={String(p.data.featured)}
+                data-look={p.data.planet} data-accent2={p.data.accent2} data-size={p.data.planetSize} data-textures={p.data.planetTextures ? 'true' : undefined}
                 aria-controls="orbit-panel" aria-expanded="false" style={`--accent:${p.data.accent}`}>
                 <span>{p.data.title}</span>
               </button>

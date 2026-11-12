@@ -13,7 +13,13 @@
 import { PerspectiveCamera, Vector3 } from 'three';
 
 export interface Rig {
+  /** The centre everything turns about (the Moon). */
   target: Vector3;
+  /** What the camera looks at, measured from that centre: how far out along the yaw direction, and
+   *  how high. With both at 0 it looks at the centre itself. Because the looked-at point is given
+   *  this way, any blend of two rigs turns the camera about the centre and nothing else. */
+  out: number;
+  lift: number;
   yaw: number;
   pitch: number;
   /** Half the visible height at the target, in world units. */
@@ -29,10 +35,12 @@ export const TELE_DISTANCE = 60;
 /** A camera so far away and so narrow that it draws the plane z = 0 exactly like the old flat camera. */
 export const TELE_FOV = (2 * Math.atan(1 / TELE_DISTANCE) * 180) / Math.PI;
 
-export const makeRig = (): Rig => ({ target: new Vector3(), yaw: 0, pitch: 0, frame: 1, fov: TELE_FOV, shiftX: 0, shiftY: 0 });
+export const makeRig = (): Rig => ({ target: new Vector3(), out: 0, lift: 0, yaw: 0, pitch: 0, frame: 1, fov: TELE_FOV, shiftX: 0, shiftY: 0 });
 
 export function copyRig(out: Rig, a: Rig): Rig {
   out.target.copy(a.target);
+  out.out = a.out;
+  out.lift = a.lift;
   out.yaw = a.yaw;
   out.pitch = a.pitch;
   out.frame = a.frame;
@@ -51,6 +59,8 @@ const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 /** Blend two rigs. `turn` is added to b.yaw first, so the camera goes round the short way. */
 export function mixRig(out: Rig, a: Rig, b: Rig, t: number, turn = 0): Rig {
   out.target.lerpVectors(a.target, b.target, t);
+  out.out = mix(a.out, b.out, t);
+  out.lift = mix(a.lift, b.lift, t);
   out.yaw = mix(a.yaw, b.yaw + turn, t);
   out.pitch = mix(a.pitch, b.pitch, t);
   // Sizes on a log scale, so a zoom feels even.
@@ -62,15 +72,19 @@ export function mixRig(out: Rig, a: Rig, b: Rig, t: number, turn = 0): Rig {
 }
 
 const position = new Vector3();
+const looked = new Vector3();
 
 /** Put a perspective camera where a rig says. */
 export function applyRig(camera: PerspectiveCamera, rig: Rig) {
   const distance = rig.frame / Math.tan((rig.fov * Math.PI) / 360);
   const c = Math.cos(rig.pitch);
-  position.set(Math.sin(rig.yaw) * c, Math.sin(rig.pitch), Math.cos(rig.yaw) * c).multiplyScalar(distance).add(rig.target);
+  const sy = Math.sin(rig.yaw);
+  const cy = Math.cos(rig.yaw);
+  looked.set(rig.target.x + sy * rig.out, rig.target.y + rig.lift, rig.target.z + cy * rig.out);
+  position.set(sy * c, Math.sin(rig.pitch), cy * c).multiplyScalar(distance).add(looked);
   camera.position.copy(position);
   camera.up.set(0, 1, 0);
-  camera.lookAt(rig.target);
+  camera.lookAt(looked);
   camera.fov = rig.fov;
   camera.near = Math.max(0.01, distance * 0.02);
   camera.far = distance + 200;
@@ -125,7 +139,6 @@ export class Director {
     // An arc: the camera pulls back a little half-way and rises, so the move reads as a flight.
     const arc = Math.sin(Math.PI * k);
     this.rig.frame *= 1 + 0.32 * arc;
-    this.rig.pitch += 0.1 * arc;
     if (this.t >= 1) copyRig(this.rig, wanted);
     return this.rig;
   }

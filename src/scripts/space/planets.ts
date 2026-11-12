@@ -8,15 +8,24 @@
 import {
   AdditiveBlending,
   BackSide,
+  ClampToEdgeWrapping,
   Color,
   DoubleSide,
   Group,
+  IcosahedronGeometry,
+  InstancedMesh,
+  LinearFilter,
+  LinearMipmapLinearFilter,
+  NoColorSpace,
   Mesh,
   Object3D,
   Ray,
+  RepeatWrapping,
   RingGeometry,
   ShaderMaterial,
   SphereGeometry,
+  SRGBColorSpace,
+  Texture,
   Sphere,
   Vector3,
   Vector4,
@@ -30,7 +39,70 @@ export interface PlanetDef {
   featured: boolean;
   /** Position in the list of projects: 0 is the most important. */
   rank: number;
+  /** The planet's designed look, from the project's data. Without one, a surface is picked by rank. */
+  look?: Look;
+  /** Second colour of the look (cracks, gold, aurora…). */
+  accent2?: string;
+  size?: 'medium' | 'medium-large';
+  /** The project has a texture set in /textures/planets/<id>_<map>.png. */
+  textures?: boolean;
 }
+
+export type Look = 'tech' | 'organic' | 'network' | 'celestial';
+
+/** Everything that makes one planet look like itself. Each part is optional where it says so. */
+interface LookConfig {
+  /** Drawn surface used when there is no texture set (and while it loads), and the look's own features. */
+  type: number;
+  /** Second colour: light in the cracks, gold, aurora… */
+  second: string;
+  /** Halo outside the disc: strength, and how much it takes the second colour. */
+  air: number;
+  airMix: number;
+  /** With a texture set. relief: large-scale slopes from the height map; fine: the normal map's detail;
+   *  displace: how far the height map lifts the ground (in planet radii); emit: how much the
+   *  emissive mask does (its role differs per planet); albedo: the share of the albedo map in the
+   *  colour; saturation: of that map's colour; polish: how shiny the smoothest ground gets. */
+  surface: { relief: number; fine: number; displace: number; emit: number; albedo: number; saturation: number; polish: number };
+  /** A ring: inner and outer radius (planet radii) and how bright its thread of light is. */
+  ring?: { inner: number; outer: number; glow: number };
+  /** A cloud layer just above the ground. */
+  clouds?: { color: string; coverage: number; scale: number; opacity: number; swirl?: boolean };
+  /** A few small rocks circling close by. */
+  debris?: { count: number; color: string };
+  /** Where the look centres its main feature (Cielith's vortex), in the planet's own space. */
+  pole?: [number, number, number];
+}
+
+const LOOKS: Record<Look, LookConfig> = {
+  // Boost: silver mineral crust, fractured onto dark depths with ice-blue light; a fine ring.
+  tech: {
+    type: 3, second: '#8fd4ff', air: 0.3, airMix: 0.3,
+    surface: { relief: 5, fine: 0.9, displace: 0.025, emit: 0.9, albedo: 0.3, saturation: 0.12, polish: 0.6 },
+    ring: { inner: 1.6, outer: 1.7, glow: 0.6 },
+    debris: { count: 5, color: '#8a8e9a' },
+  },
+  // Aceituna: green and olive country, mountains and dark valleys, ochre highlands, light cloud.
+  organic: {
+    type: 4, second: '#c9a23a', air: 0.45, airMix: 0.0,
+    surface: { relief: 8, fine: 0.8, displace: 0.04, emit: 0.18, albedo: 0.4, saturation: 0.9, polish: 0.12 },
+    clouds: { color: '#f1efe6', coverage: 0.5, scale: 2.6, opacity: 0.55 },
+    debris: { count: 6, color: '#9a8466' },
+  },
+  // Votify: violet crystal in facets, its network of light glowing in some regions only.
+  network: {
+    type: 5, second: '#ff4fd0', air: 1.1, airMix: 0.25,
+    surface: { relief: 3, fine: 0.4, displace: 0.015, emit: 1, albedo: 0.25, saturation: 0.9, polish: 0.7 },
+  },
+  // Cielith: night blue, a great vortex, violet cloud regions, a faint aurora.
+  celestial: {
+    type: 6, second: '#b9a6ff', air: 0.95, airMix: 0.6,
+    surface: { relief: 2, fine: 0.3, displace: 0.01, emit: 0.3, albedo: 0.3, saturation: 1, polish: 0.25 },
+    clouds: { color: '#8a6ad8', coverage: 0.4, scale: 2.2, opacity: 0.55, swirl: true },
+    // The vortex sits high on the globe, where the tilted axis keeps it in view most of the time.
+    pole: [0.3, 0.9, 0.3],
+  },
+};
 
 /** Where a planet is on screen, in CSS pixels. */
 export interface PlanetSpot {
@@ -46,14 +118,29 @@ export interface PlanetSpot {
 }
 
 const BODY_VERT = /* glsl */ `
+uniform float uMaps;
+uniform sampler2D uDataMap;
+uniform vec4 uSurface2;
 varying vec3 vP;
 varying vec3 vView;
 varying vec3 vX;
 varying vec3 vY;
 varying vec3 vZ;
+varying vec2 vUv;
 void main() {
   vP = position;
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vUv = uv;
+  vec3 pos = position;
+  if (uMaps > 0.5 && uSurface2.z > 0.0) {
+    // The height map lifts the ground a little, so the edge of the planet is not a perfect circle.
+    // Both sides of the 180th meridian get the same height (the maps do not tile), and the poles,
+    // where many vertices meet at one point, stay put.
+    float h = 0.5 * (textureLod(uDataMap, uv, 1.0).r + textureLod(uDataMap, vec2(1.0 - uv.x, uv.y), 1.0).r);
+    float d = min(uv.x, 1.0 - uv.x);
+    float hs = mix(h, textureLod(uDataMap, uv, 1.0).r, smoothstep(0.0, 0.03, d));
+    pos *= 1.0 + uSurface2.z * (hs - 0.5) * smoothstep(0.95, 0.78, abs(normalize(position).y));
+  }
+  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
   vView = mv.xyz;
   // The body's axes in view space, to turn the bumped normal into view space in the fragment shader.
   vX = normalMatrix * vec3(1.0, 0.0, 0.0);
@@ -62,7 +149,8 @@ void main() {
   gl_Position = projectionMatrix * mv;
 }`;
 
-// Three kinds of surface, picked per project: cratered rock, banded gas and ice with clouds.
+// Surfaces. Four are designed looks a project can ask for (tech, organic, network, celestial);
+// three generic ones (cratered rock, banded gas, ice with clouds) serve any other project.
 const BODY_FRAG = /* glsl */ `
 uniform vec3 uDark;
 uniform vec3 uBase;
@@ -75,11 +163,54 @@ uniform float uOctaves;
 uniform vec3 uSun;
 uniform vec3 uKey;
 uniform vec4 uMoon;
+uniform vec3 uSecond;
+uniform vec3 uAir;
+uniform vec3 uNodes[10];
+uniform vec3 uPole;
+uniform float uTime;
+// The project's own texture set (equirectangular): colour, normal, height, roughness, light.
+uniform float uMaps;
+uniform sampler2D uAlbedoMap;  // colour, sRGB (decoded to linear by the GPU)
+uniform sampler2D uNormalMap;  // tangent-space normal, data
+uniform sampler2D uDataMap;    // R height, G roughness, B emissive mask, data
+uniform vec4 uSurface;  // relief, fine, emit, -
+uniform vec4 uSurface2; // saturation, polish, displace, albedo share
 varying vec3 vP;
 varying vec3 vView;
 varying vec3 vX;
 varying vec3 vY;
 varying vec3 vZ;
+varying vec2 vUv;
+
+// Map coordinates, worked out per pixel from the point on the sphere. The mesh's own UVs are
+// interpolated across the triangles that meet at the poles, which shows as wedges there.
+// Derivatives come from whichever of two longitude cuts is smooth here, so the 180th meridian
+// gets no seam line.
+vec2 suv;
+vec2 sdx;
+vec2 sdy;
+void mapCoords(vec3 p) {
+  float u = atan(p.z, -p.x) / 6.2832;
+  suv = vec2(fract(u), 1.0 - acos(clamp(p.y, -1.0, 1.0)) / 3.1416);
+  float u2 = fract(u + 0.5);
+  bool wrap = fwidth(suv.x) > fwidth(u2);
+  sdx = vec2(wrap ? dFdx(u2) : dFdx(suv.x), dFdx(suv.y));
+  sdy = vec2(wrap ? dFdy(u2) : dFdy(suv.x), dFdy(suv.y));
+}
+// The maps do not tile across the 180th meridian: close to it, both sides are blended.
+vec4 texAt(sampler2D m, vec2 uv) {
+  vec4 c = textureGrad(m, uv, sdx, sdy);
+  float d = min(uv.x, 1.0 - uv.x);
+  if (d < 0.03) c = mix(textureGrad(m, vec2(1.0 - uv.x, uv.y), sdx, sdy), c, 0.5 + 0.5 * smoothstep(0.0, 0.03, d));
+  return c;
+}
+vec4 tex(sampler2D m) { return texAt(m, suv); }
+float heightLod(vec2 uv, float lod) {
+  float d = min(uv.x, 1.0 - uv.x);
+  float h = textureLod(uDataMap, uv, lod).r;
+  if (d < 0.03) h = mix(textureLod(uDataMap, vec2(1.0 - uv.x, uv.y), lod).r, h, 0.5 + 0.5 * smoothstep(0.0, 0.03, d));
+  return h;
+}
 
 float hash(vec3 p) {
   p = fract(p * 0.3183099 + 0.1);
@@ -107,9 +238,96 @@ float fbm(vec3 p) {
   return s;
 }
 
+float ridged(vec3 p) {
+  float a = 0.5;
+  float s = 0.0;
+  for (int i = 0; i < 4; i++) {
+    if (float(i) >= uOctaves) break;
+    float r = 1.0 - abs(noise(p) * 2.0 - 1.0);
+    s += a * r * r;
+    p = p * 2.1 + 3.7;
+    a *= 0.5;
+  }
+  return s;
+}
+// Cells: distance to the nearest centre, how close the nearest border is, and a number per cell.
+vec3 cells(vec3 x) {
+  vec3 i = floor(x);
+  vec3 f = x - i;
+  float d1 = 9.0;
+  float d2 = 9.0;
+  float id = 0.0;
+  for (int a = -1; a <= 1; a++) for (int b = -1; b <= 1; b++) for (int c = -1; c <= 1; c++) {
+    vec3 g = vec3(float(a), float(b), float(c));
+    vec3 o = vec3(hash(i + g + 1.7), hash(i + g + 9.2), hash(i + g + 5.4));
+    float d = length(g + o - f);
+    if (d < d1) { d2 = d1; d1 = d; id = hash(i + g + 3.3); } else if (d < d2) { d2 = d; }
+  }
+  return vec3(d1, d2 - d1, id);
+}
+vec3 turn(vec3 v, vec3 k, float a) { return v * cos(a) + cross(k, v) * sin(a) + k * dot(k, v) * (1.0 - cos(a)); }
+// One crater per cell at most: a bowl with a raised rim. -1 at the floor, +0.35 on the rim.
+float craterH(vec3 q) {
+  vec3 id = floor(q);
+  if (hash(id + 4.1) > 0.6) return 0.0;
+  vec3 c = 0.32 + 0.36 * vec3(hash(id + 11.3), hash(id + 23.7), hash(id + 37.1));
+  float rad = 0.09 + 0.12 * hash(id + 51.9);
+  float d = length(q - id - c) / rad;
+  if (d >= 1.5) return 0.0;
+  float depth = 0.4 + 0.6 * hash(id + 71.3);
+  return (d < 1.0 ? -1.0 + 1.35 * d * d : 0.35 * pow(1.0 - (d - 1.0) / 0.5, 2.0)) * depth;
+}
+// Tech: where the grey crust has broken open (1) and where it is whole (0), with a jagged edge.
+float broken(vec3 p) {
+  float m = noise(p * 1.25 + uSeed) + 0.35 * (fbm(p * 4.5 + uSeed) - 0.5) + 0.12 * (noise(p * 14.0) - 0.5);
+  return smoothstep(0.6, 0.64, m);
+}
+// Organic: cloud bands that wrap round the planet in wisps.
+float wisps(vec3 p) {
+  vec3 q = vec3(p.x * 2.2, p.y * 6.0, p.z * 2.2) + uSeed + vec3(uTime * 0.01, 0.0, 0.0);
+  float bands = smoothstep(0.3, 0.0, abs(p.y - 0.42 + 0.12 * sin(p.x * 3.0 + uSeed))) + smoothstep(0.24, 0.0, abs(p.y + 0.38 + 0.1 * sin(p.z * 3.0)));
+  return smoothstep(0.4, 0.68, fbm(q + fbm(q * 0.5))) * min(bands, 1.0);
+}
+// Network: billowing violet cloud over part of the globe.
+float billows(vec3 p) {
+  vec3 q = p * 2.4 + uSeed;
+  float where = smoothstep(0.6, 0.72, noise(q * 0.7 + 3.0));
+  float puff = 1.0 - abs(noise(q * 1.6 + fbm(q)) * 2.0 - 1.0);
+  return where * smoothstep(0.25, 0.8, puff * 0.6 + fbm(q * 2.0) * 0.6);
+}
+// Celestial: the sky is wound round a vortex at the pole of the look.
+vec3 swirl(vec3 p) {
+  float d = 1.0 - dot(p, uPole);
+  return turn(p, uPole, 3.4 * exp(-d * 2.6) + uTime * 0.02);
+}
+// …and clouds gather low on the globe.
+float clouds(vec3 p) {
+  vec3 q = p * 3.0 + uSeed;
+  float low = smoothstep(-0.25, -0.6, p.y + 0.18 * sin(p.x * 4.0 + uSeed));
+  float puff = 1.0 - abs(noise(q * 1.4 + fbm(q * 0.8)) * 2.0 - 1.0);
+  return low * smoothstep(0.3, 0.85, puff * 0.55 + fbm(q * 1.8) * 0.65);
+}
+
 // Height of the ground (rock and ice) or of the cloud tops (gas), for a point on the unit sphere.
 float height(vec3 p) {
   vec3 q = p * 2.6 + uSeed;
+  if (uType > 5.5) return fbm(swirl(p) * 2.2 + uSeed) * 0.5;
+  if (uType > 4.5) {
+    // Rough crystal ground under the billows.
+    return ridged(q * 1.5) * 0.5;
+  }
+  if (uType > 3.5) {
+    // Mountain country: long sharp ridges, one great crater, cloud on top.
+    float cr = length(p - uPole) / 0.34;
+    float crater = cr < 1.0 ? -0.5 + 0.75 * cr * cr : 0.25 * smoothstep(1.5, 1.0, cr);
+    return ridged(q * 1.25 + fbm(q * 0.7) * 0.8) * 1.1 + fbm(q * 4.0) * 0.2 + crater;
+  }
+  if (uType > 2.5) {
+    // Cratered crust; the broken regions lie lower and smoother.
+    float br = broken(p);
+    float cr = craterH(q * 1.6) * 0.22 + craterH(q * 3.7 + 9.0) * 0.1 + craterH(q * 8.0 + 3.0) * 0.045;
+    return mix(fbm(q * 1.8) * 0.3 + cr, fbm(q * 3.0) * 0.12 - 0.12, br);
+  }
   if (uType < 0.5) {
     // Rock: rolling ground, worn basins with raised rims, fine grit.
     float h = fbm(q * 1.6);
@@ -134,17 +352,126 @@ void main() {
   vec3 p = normalize(vP);
   vec3 T = normalize(cross(vec3(0.0, 1.0, 0.0), p) + 1e-4);
   vec3 B = cross(p, T);
+  vec3 nObj = p;
+  float h = 0.0;
+  vec3 albedo = vec3(0.0);
+  // Light the surface gives off by itself: cracks, points, aurora.
+  vec3 emit = vec3(0.0);
+  float gloss = 0.0;
+  float shine = 36.0;
   float d = 0.012;
-  float h = height(p);
+  h = height(p);
   float hT = height(normalize(p + T * d));
   float hB = height(normalize(p + B * d));
-  float bump = uType < 0.5 ? 0.9 : (uType < 1.5 ? 0.12 : 0.35);
-  vec3 nObj = normalize(p - bump * ((hT - h) * T + (hB - h) * B) / d * 0.08);
-  vec3 n = normalize(vX * nObj.x + vY * nObj.y + vZ * nObj.z);
-  vec3 n0 = normalize(vX * p.x + vY * p.y + vZ * p.z);
-
-  vec3 albedo;
-  if (uType < 0.5) {
+  float bump = uType < 0.5 ? 0.9 : (uType < 1.5 ? 0.12 : (uType < 2.5 ? 0.35 : (uType < 3.5 ? 1.6 : (uType < 4.5 ? 1.5 : (uType < 5.5 ? 1.2 : 1.0)))));
+  nObj = normalize(p - bump * ((hT - h) * T + (hB - h) * B) / d * 0.08);
+  if (uType > 5.5) {
+    // Celestial: night-blue streams of blue, cyan and violet wound into a vortex, lavender cloud
+    // low on the globe, stars, an aurora and a soft light in the eye of the vortex.
+    float cl = 0.0;
+    vec3 sw = swirl(p);
+    vec3 sq = vec3(sw.x * 1.3, sw.y * 4.2, sw.z * 1.3) + uSeed;
+    float flow = fbm(sq + fbm(sq * 0.6) * 0.8);
+    float bright = smoothstep(0.42, 0.7, flow);
+    float thread = pow(1.0 - abs(noise(sq * 1.7 + 5.0) * 2.0 - 1.0), 5.0);
+    albedo = mix(vec3(0.003, 0.006, 0.03), uBase * 0.4, smoothstep(0.3, 0.75, flow));
+    vec3 stream = mix(vec3(0.08, 0.3, 1.0), vec3(0.25, 0.85, 1.0), smoothstep(0.55, 0.85, flow));
+    stream = mix(stream, uSecond, smoothstep(0.45, 0.7, noise(sw * 1.8 + uSeed + 3.0)));
+    emit += stream * (bright * 0.22 + thread * bright * 0.35) * (1.0 - cl);
+    albedo = mix(albedo, mix(vec3(0.72, 0.72, 1.0), uSecond, 0.35), cl * 0.92);
+    // The aurora: an oval round the vortex, like an aurora round a magnetic pole.
+    vec3 axisA = normalize(cross(uPole, vec3(0.31, 0.9, 0.3)));
+    float along = atan(dot(p, cross(axisA, uPole)), dot(p, axisA));
+    float off = dot(p, uPole) - 0.55 + 0.05 * sin(along * 3.0 + uSeed) + 0.04 * (noise(p * 3.0 + uTime * 0.05) - 0.5);
+    float band = exp(-pow(off / 0.05, 2.0));
+    float part = smoothstep(0.35, 0.55, noise(vec3(along * 0.9, uSeed, uTime * 0.03)));
+    float folds = 0.6 + 0.4 * sin(along * 22.0 + noise(p * 5.0) * 5.0 + uTime * 0.25);
+    emit += mix(vec3(0.2, 0.75, 1.0), uSecond, 0.5 + 0.5 * sin(along * 2.0)) * band * part * folds * 0.6;
+    vec3 sc = p * 15.0 + uSeed;
+    vec3 si = floor(sc);
+    float sh = hash(si + 2.2);
+    if (sh > 0.95) {
+      float sd = length(sc - si - 0.5);
+      emit += mix(vec3(1.0), uSecond, 0.4) * smoothstep(0.18, 0.0, sd) * 1.3 * (1.0 - cl) * (0.6 + 0.4 * sin(uTime * (0.4 + sh) + sh * 30.0));
+    }
+    // The vortex: two spiral arms of lighter blue and lavender wound into a dark eye that glows softly.
+    float dv = 1.0 - dot(p, uPole);
+    vec3 v1 = normalize(cross(uPole, vec3(0.0, 0.0, 1.0)));
+    vec3 v2 = cross(uPole, v1);
+    float rv = sqrt(max(2.0 * dv, 0.0));
+    float av = atan(dot(p, v2), dot(p, v1));
+    float arms = 0.5 + 0.5 * sin(2.0 * av + 6.5 * log(rv + 0.03) - uTime * 0.04 + (noise(p * 6.0 + uSeed) - 0.5) * 2.0);
+    float zone = smoothstep(0.95, 0.25, rv) * smoothstep(0.03, 0.12, rv);
+    albedo = mix(albedo, mix(vec3(0.2, 0.3, 0.8), uSecond, 0.5), pow(arms, 3.0) * zone * 0.8);
+    albedo *= 1.0 - 0.6 * smoothstep(0.14, 0.04, rv);
+    emit += mix(vec3(0.3, 0.7, 1.0), uSecond, 0.5) * pow(arms, 5.0) * zone * 0.1;
+    emit += mix(uSecond, vec3(0.6, 0.8, 1.0), 0.4) * (exp(-dv * 90.0) * 0.45 + exp(-dv * 14.0) * 0.06);
+  } else if (uType > 4.5) {
+    // Network: dark violet crystal with a web of magenta light and bright nodes, under lavender billows.
+    float bl = 0.0;
+    vec3 ce = cells(p * 3.4 + uSeed);
+    // Each crystal is a flat face, tilted its own way: facets catch the light one by one.
+    vec3 tilt = vec3(hash(vec3(ce.z * 91.0, 1.0, 2.0)), hash(vec3(ce.z * 57.0, 3.0, 1.0)), 0.0) - 0.5;
+    nObj = normalize(nObj + (T * tilt.x + B * tilt.y) * 0.5);
+    albedo = mix(uDark * 0.5, uBase * 0.7, 0.2 + 0.8 * ce.z);
+    gloss = 0.4 * ce.z * (1.0 - bl);
+    float open = 1.0 - smoothstep(0.05, 0.5, bl);
+    // The fine web: the seams between crystals.
+    float web = 1.0 - smoothstep(0.0, 0.016, ce.y);
+    emit += uSecond * web * open * 0.55;
+    float points = 0.0;
+    float lines = 0.0;
+    float warm = 0.0;
+    for (int i = 0; i < 10; i++) {
+      vec3 a = uNodes[i];
+      float da = 1.0 - dot(p, a);
+      float pt = exp(-da * 1400.0) * 1.4 + exp(-da * 160.0) * 0.25;
+      points += pt;
+      if (i == 2 || i == 6) warm += pt;
+      for (int k = 1; k <= 2; k++) {
+        if (k == 2 && (i - (i / 2) * 2) != 0) continue;
+        vec3 b = uNodes[(i + k) - ((i + k) / 10) * 10];
+        vec3 nn = normalize(cross(a, b));
+        float inside = step(0.0, dot(cross(a, p), nn)) * step(0.0, dot(cross(p, b), nn));
+        lines += (1.0 - smoothstep(0.0, 0.007, abs(dot(p, nn)))) * inside;
+      }
+    }
+    emit += (mix(uSecond, vec3(1.0, 0.85, 1.0), 0.65) * points + vec3(1.0, 0.45, 0.2) * warm * 0.25
+      + mix(uSecond, vec3(1.0, 0.8, 1.0), 0.35) * min(lines, 1.0) * 0.55) * (0.25 + 0.75 * open);
+    // Billows: lavender on top, violet in their folds.
+    vec3 cloud = mix(uBase * 0.3, vec3(0.42, 0.28, 0.8), smoothstep(0.3, 1.0, bl));
+    albedo = mix(albedo, cloud, smoothstep(0.05, 0.4, bl));
+  } else if (uType > 3.5) {
+    // Organic: dark green valleys, olive slopes, gold and ochre on the sunlit ridges, white cloud.
+    float g = h;
+    albedo = mix(uDark * 0.7, uBase, smoothstep(0.2, 0.6, g));
+    vec3 ochre = mix(uSecond, vec3(0.42, 0.3, 0.1), 0.35 + 0.4 * noise(p * 6.0 + uSeed));
+    albedo = mix(albedo, ochre, smoothstep(0.6, 0.95, g) * (0.45 + 0.5 * smoothstep(0.4, 0.6, noise(p * 1.8 + uSeed + 9.0))));
+    albedo = mix(albedo, uSecond * 1.3, smoothstep(0.95, 1.25, g) * 0.6);
+    albedo *= 0.7 + 0.6 * fbm(p * 11.0 + uSeed);
+  } else if (uType > 2.5) {
+    // Tech: silver-grey cratered crust; where it has broken, dark blue depths crossed by veins of
+    // ice-blue light, with glints where veins meet.
+    float br = broken(p);
+    albedo = mix(uDark * 1.5, uBase, smoothstep(-0.05, 0.3, h));
+    albedo = mix(albedo, uLight, smoothstep(0.28, 0.45, h) * 0.5);
+    albedo *= 0.8 + 0.4 * fbm(p * 13.0 + uSeed);
+    // Thin dark cracks run across the whole crust; only the broken regions hold light.
+    float crackLine = pow(1.0 - abs(noise(p * 5.0 + uSeed + fbm(p * 3.0) * 0.8) * 2.0 - 1.0), 7.0);
+    crackLine *= smoothstep(0.3, 0.5, noise(p * 2.2 + uSeed + 7.0));
+    albedo *= 1.0 - 0.85 * smoothstep(0.35, 0.8, crackLine) * smoothstep(0.02, 0.006, length(fwidth(p)));
+    gloss = 0.35 * (1.0 - br);
+    vec3 ce = cells(p * 4.2 + uSeed + (fbm(p * 6.0) - 0.5) * 0.5);
+    vec3 depths = mix(vec3(0.006, 0.014, 0.06), vec3(0.03, 0.08, 0.26), ce.z * 0.8 + 0.2 * noise(p * 5.0));
+    albedo = mix(albedo, depths, br);
+    // Only some seams carry light, so the veins stay local.
+    float vein = (1.0 - smoothstep(0.0, 0.012, ce.y)) * step(0.55, hash(vec3(ce.z * 31.0, 2.0, 7.0)));
+    float glow = exp(-ce.y * 16.0) * 0.12;
+    float glint = exp(-ce.x * ce.x * 260.0) * step(0.72, ce.z);
+    // The edge of the break glows faintly too.
+    float rim = br * (1.0 - br) * 4.0;
+    emit += br * (mix(uSecond, vec3(0.92, 0.97, 1.0), 0.6) * vein * 1.25 + uSecond * glow + vec3(0.9, 0.96, 1.0) * glint * 0.8) + uSecond * rim * 0.15;
+  } else if (uType < 0.5) {
     albedo = mix(uDark, uBase, smoothstep(0.32, 0.62, h));
     albedo = mix(albedo, uLight, smoothstep(0.66, 0.85, h) * 0.7);
   } else if (uType < 1.5) {
@@ -160,6 +487,67 @@ void main() {
     albedo = mix(albedo, uLight, max(cloud * 0.6, cap));
   }
 
+  if (uMaps > 0.5) {
+    // The project's texture set on top of the drawn world:
+    //  - relief: coarse slopes from the height (data R), detail from the normal map, hollows from
+    //    fine minus coarse height. The normal maps are computed from the heights, so the two work at
+    //    different scales instead of doubling the relief. The pack's normals keep green pointing
+    //    down (DirectX): flipped here.
+    //  - colour: the albedo map is blended into the drawn colour, by a share set per planet;
+    //  - polish: roughness (data G) sets how sharp and bright the highlights are;
+    //  - light: the emissive mask (data B) places each planet's own light (see below).
+    mapCoords(p);
+    // Near the poles an equirectangular map fans out into rays: there the maps give their average.
+    float poleFade = smoothstep(0.74, 0.93, abs(p.y));
+    vec3 nm = tex(uNormalMap).xyz * 2.0 - 1.0;
+    nm.y = -nm.y;
+    vec4 dat = mix(tex(uDataMap), textureLod(uDataMap, suv, 10.0), poleFade);
+    vec2 size = vec2(textureSize(uDataMap, 0));
+    vec2 e = 6.0 / size;
+    float hL = heightLod(suv - vec2(e.x, 0.0), 2.5);
+    float hR = heightLod(suv + vec2(e.x, 0.0), 2.5);
+    float hD = heightLod(suv - vec2(0.0, e.y), 2.5);
+    float hU = heightLod(suv + vec2(0.0, e.y), 2.5);
+    float cosLat = max(sqrt(max(1.0 - p.y * p.y, 0.0)), 0.2);
+    vec2 slope = vec2((hR - hL) / (2.0 * e.x * 6.2832 * cosLat), (hU - hD) / (2.0 * e.y * 3.1416)) * (1.0 - poleFade);
+    vec3 gm = (slope.x * T + slope.y * B) * uSurface.x * 0.02;
+    nObj = normalize(nObj + (T * nm.x + B * nm.y) * uSurface.y * (1.0 - poleFade) - gm);
+    float occ = clamp(1.0 + (dat.r - heightLod(suv, 5.0)) * 2.4 * (1.0 - poleFade), 0.6, 1.2);
+
+    vec3 mapCol = mix(tex(uAlbedoMap).rgb, textureLod(uAlbedoMap, suv, 10.0).rgb, poleFade);
+    mapCol = mix(vec3(dot(mapCol, vec3(0.2126, 0.7152, 0.0722))), mapCol, uSurface2.x);
+    albedo = mix(albedo, mapCol, uSurface2.w) * occ;
+
+    float rough = dat.g;
+    gloss *= 1.3 - rough;
+    shine = mix(90.0, 10.0, rough);
+
+    float em = dat.b;
+    if (uType > 5.5) {
+      // Cielith: faint cyan glows in the dark ground.
+      emit += mix(vec3(0.25, 0.7, 1.0), uSecond, 0.4) * textureLod(uDataMap, suv, 1.5).b * uSurface.z;
+    } else if (uType > 4.5) {
+      // Votify: the mask, blurred, chooses where the crystal network is lit; elsewhere it dims.
+      float region = smoothstep(0.12, 0.4, textureLod(uDataMap, suv, 3.5).b);
+      emit *= mix(0.3, 1.0, region * uSurface.z);
+    } else if (uType > 3.5) {
+      // Aceituna: gold specks catch a little light.
+      emit += uSecond * em * uSurface.z;
+    } else if (uType > 2.5) {
+      // Boost: the mask marks fractured ground: dark depths, light along the broken edge and
+      // thin ice-blue veins inside.
+      float zone = smoothstep(0.08, 0.35, textureLod(uDataMap, suv, 1.5).b);
+      albedo = mix(albedo, vec3(0.008, 0.016, 0.05), zone * 0.9);
+      gloss *= 1.0 - zone;
+      float vein = pow(1.0 - abs(noise(p * 24.0 + uSeed) * 2.0 - 1.0), 12.0) * zone;
+      emit += mix(uSecond, vec3(0.9, 0.97, 1.0), 0.3) * (zone * (1.0 - zone) * 4.0 * 0.35 + vein * 0.9) * uSurface.z;
+    } else {
+      emit += uSecond * em * uSurface.z;
+    }
+  }
+  vec3 n = normalize(vX * nObj.x + vY * nObj.y + vZ * nObj.z);
+  vec3 n0 = normalize(vX * p.x + vY * p.y + vZ * p.z);
+
   // The sun of the eclipse, hidden where the Moon stands between it and this point.
   vec3 oc = uMoon.xyz - vView;
   float tca = dot(oc, uSun);
@@ -170,13 +558,16 @@ void main() {
   // The key light that also models the Moon's relief keeps every planet readable during the eclipse.
   float key = max(dot(n, uKey), 0.0);
   vec3 col = albedo * (0.05 + 0.7 * key + 0.85 * sun);
+  vec3 V = normalize(-vView);
+  // Polished faces catch the key light: sharp and bright where the ground is smooth, broad and dim
+  // where it is rough.
+  col += mix(vec3(1.0), uLight, 0.5) * gloss * pow(max(dot(n, normalize(uKey + V)), 0.0), shine) * (shine + 8.0) / 60.0 * (0.4 + 0.6 * key);
+  col += emit;
 
   // A thin atmosphere: light caught at the edge, strongest towards the sun.
-  vec3 V = normalize(-vView);
   float fres = pow(1.0 - max(dot(n0, V), 0.0), 3.0);
   float toward = 0.3 + 0.7 * max(dot(n0, uSun) + 0.35, 0.0);
-  vec3 air = mix(uBase, vec3(0.74, 0.6, 1.0), 0.45);
-  col += air * fres * toward * (0.55 + 0.6 * uHover);
+  col += uAir * fres * toward * (0.55 + 0.6 * uHover);
 
   col *= (1.0 + 0.35 * uHover) * mix(1.0, 0.32, uDim);
   float L = dot(col, vec3(0.2126, 0.7152, 0.0722));
@@ -213,6 +604,83 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+// A cloud layer just above the ground: its own sphere, so it sits apart from the surface and turns
+// a little faster than it.
+const CLOUD_VERT = /* glsl */ `
+varying vec3 vP;
+varying vec3 vN;
+varying vec3 vView;
+void main() {
+  vP = position;
+  vN = normalize(normalMatrix * normal);
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vView = mv.xyz;
+  gl_Position = projectionMatrix * mv;
+}`;
+const CLOUD_FRAG = /* glsl */ `
+uniform vec3 uColor;
+uniform float uCoverage;
+uniform float uScale;
+uniform float uOpacity;
+uniform float uSwirl;
+uniform vec3 uPole;
+uniform float uSeed;
+uniform float uTime;
+uniform float uDim;
+uniform vec3 uSun;
+uniform vec3 uKey;
+varying vec3 vP;
+varying vec3 vN;
+varying vec3 vView;
+float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float noise(vec3 x) {
+  vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float fbm(vec3 p) { float a = 0.5; float s = 0.0; for (int i = 0; i < 4; i++) { s += a * noise(p); p = p * 2.03 + 5.1; a *= 0.5; } return s; }
+vec3 turn(vec3 v, vec3 k, float a) { return v * cos(a) + cross(k, v) * sin(a) + k * dot(k, v) * (1.0 - cos(a)); }
+void main() {
+  vec3 p = normalize(vP);
+  // Celestial clouds wind round the vortex; others drift along the latitudes.
+  if (uSwirl > 0.5) p = turn(p, uPole, 3.0 * exp(-(1.0 - dot(p, uPole)) * 2.4));
+  vec3 q = vec3(p.x, p.y * 1.6, p.z) * uScale + uSeed + vec3(uTime * 0.008, 0.0, 0.0);
+  float c = fbm(q + fbm(q * 0.5) * 0.8);
+  // Large clear regions between the cloud fields.
+  c *= smoothstep(0.38, 0.56, noise(q * 0.45 + 9.0));
+  float a = smoothstep(uCoverage, uCoverage + 0.18, c) * uOpacity * mix(1.0, 0.4, uDim);
+  if (a < 0.01) discard;
+  vec3 n = normalize(vN);
+  float light = 0.18 + 0.62 * max(dot(n, uKey), 0.0) + 0.45 * max(dot(n, uSun), 0.0);
+  // Thinner towards the limb, where the eye looks through less of the layer.
+  a *= smoothstep(0.0, 0.35, dot(n, normalize(-vView)));
+  gl_FragColor = vec4(uColor * light, a);
+  #include <colorspace_fragment>
+}`;
+
+// Small rocks: a lumpy shape and plain stone, lit like the planets. Not the planet's own material.
+const ROCK_VERT = /* glsl */ `
+varying vec3 vN;
+float h(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+void main() {
+  // All of a planet's rocks are one instanced draw: each instance has its own place, turn and size.
+  vec3 p = position * (0.78 + 0.4 * h(floor(position * 3.0) + instanceMatrix[3].xyz));
+  vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
+}`;
+const ROCK_FRAG = /* glsl */ `
+uniform vec3 uColor;
+uniform vec3 uSun;
+uniform vec3 uKey;
+uniform float uDim;
+varying vec3 vN;
+void main() {
+  vec3 n = normalize(vN);
+  vec3 col = uColor * (0.08 + 0.75 * max(dot(n, uKey), 0.0) + 0.6 * max(dot(n, uSun), 0.0)) * mix(1.0, 0.35, uDim);
+  gl_FragColor = vec4(col, 1.0);
+  #include <colorspace_fragment>
+}`;
+
 const RING_VERT = /* glsl */ `
 varying float vR;
 varying vec3 vView;
@@ -229,6 +697,8 @@ uniform float uSeed;
 uniform float uDim;
 uniform float uIn;
 uniform float uOut;
+uniform float uGlow;
+uniform vec3 uTint;
 varying float vR;
 float h(float x) { return fract(sin(x * 91.7 + uSeed) * 43758.5453); }
 float n1(float x) { float i = floor(x); float f = fract(x); return mix(h(i), h(i + 1.0), f * f * (3.0 - 2.0 * f)); }
@@ -238,8 +708,14 @@ void main() {
   float edge = smoothstep(0.0, 0.08, t) * smoothstep(1.0, 0.86, t);
   float gap = 1.0 - 0.85 * smoothstep(0.02, 0.0, abs(t - 0.62));
   float a = bands * edge * gap * 0.55 * mix(1.0, 0.35, uDim);
-  vec3 col = mix(uBase, uLight, n1(t * 21.0));
-  gl_FragColor = vec4(col * 0.75, a);
+  vec3 col = mix(uBase, uLight, n1(t * 21.0)) * 0.75;
+  if (uGlow > 0.0) {
+    // A fine ring of light: a bright thread with a soft skirt.
+    float c = abs(t - 0.5) * 2.0;
+    a = (exp(-c * c * 60.0) * 0.9 + exp(-c * c * 6.0) * 0.12) * uGlow * mix(1.0, 0.35, uDim);
+    col = mix(uTint, vec3(1.0), exp(-c * c * 40.0) * 0.6);
+  }
+  gl_FragColor = vec4(col, a);
   #include <colorspace_fragment>
 }`;
 
@@ -261,6 +737,19 @@ interface Body {
   body: Mesh<SphereGeometry, ShaderMaterial>;
   air: Mesh<SphereGeometry, ShaderMaterial>;
   ring: Mesh<RingGeometry, ShaderMaterial> | null;
+  clouds: Mesh<SphereGeometry, ShaderMaterial> | null;
+  debris: Object3D | null;
+  rockMaterial: ShaderMaterial | null;
+  /** Removed from the system: anything still loading for it is thrown away when it arrives. */
+  gone: boolean;
+  /** The project's texture set: not asked for, waiting for the orbit to open, loading, or in use. */
+  maps: 'none' | 'wanted' | 'loading' | 'done';
+  textures: Texture[];
+  /** Width of the texture set on the GPU now (0 for none), and of the one being fetched. */
+  res: number;
+  fetching: number;
+  /** Cancels the fetch in flight. */
+  abort: AbortController | null;
   size: number;
   /** Orbit, in Moon radii and radians. */
   orbit: { a: number; e: number; incl: number; node: number; angle: number; speed: number; spin: number };
@@ -270,13 +759,27 @@ interface Body {
   world: Vector3;
 }
 
-const SLOT0 = 2.55;
-const SLOT_STEP = 1.3;
+/** Why a file did not load: missing, refused by the server, or not reachable at all. */
+async function whyNot(url: string): Promise<string> {
+  try {
+    const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    if (r.status === 404) return 'not found: check the file name and the project slug';
+    if (!r.ok) return `server answered ${r.status}`;
+    return 'the file is there but could not be decoded as an image';
+  } catch {
+    return 'network error';
+  }
+}
+
+const SLOT0 = 2.7;
+const SLOT_STEP = 1.45;
 
 export class PlanetSystem {
   readonly group = new Group();
   private bodies: Body[] = [];
   private sphere: SphereGeometry;
+  private rock = new IcosahedronGeometry(1, 1);
+  private time = { value: 0 };
   private octaves: number;
   private lastProgress = -1;
   private hovered: string | null = null;
@@ -288,13 +791,22 @@ export class PlanetSystem {
   private moonSphere = new Sphere();
   private otherSphere = new Sphere();
 
-  constructor(quality: 'high' | 'low') {
-    this.sphere = new SphereGeometry(1, quality === 'high' ? 64 : 40, quality === 'high' ? 44 : 28);
+  private quality: 'high' | 'medium' | 'low';
+
+  /** Sends one texture to the GPU now (the renderer's initTexture). */
+  private upload: (t: Texture) => void;
+
+  constructor(quality: 'high' | 'medium' | 'low', upload: (t: Texture) => void) {
+    this.quality = quality;
+    this.upload = upload;
+    this.sphere = new SphereGeometry(1, quality === 'high' ? 64 : quality === 'medium' ? 40 : 32, quality === 'high' ? 44 : quality === 'medium' ? 28 : 22);
     this.octaves = quality === 'high' ? 5 : 3;
     this.group.visible = false;
   }
 
   get ids() { return this.bodies.map((b) => b.def.id); }
+  /** Every texture set asked for is on the GPU (or has failed and fallen back). */
+  get ready() { return this.bodies.length > 0 && this.bodies.every((b) => b.maps === 'done' || b.maps === 'none') && this.queue.length === 0 && this.active === 0; }
   has(id: string) { return this.bodies.some((b) => b.def.id === id && b.shown); }
 
   /** Build the planets for these projects. Planets already built for the same id are kept. */
@@ -309,6 +821,123 @@ export class PlanetSystem {
     }
     this.bodies.sort((a, b) => a.def.rank - b.def.rank);
     this.layout(false);
+  }
+
+  // ---- Texture sets: streamed by priority ----
+  // 1. Nothing is fetched until the projects section is near (prefetch).
+  // 2. Then each planet's small set (512 wide), most important planet first, two at a time.
+  // 3. A planet the visitor selects gets its large set (1024), ahead of everything else.
+  // Every fetch can be cancelled (leaving the page); results for a removed planet are thrown away.
+  // Decoding happens off the main thread; textures go to the GPU one per frame.
+
+  /** Width of the set used in the general view, and the one for a selected planet. */
+  private get small() { return 512; }
+  private get large() { return this.quality === 'low' ? 512 : 1024; }
+  private wanted: { body: Body; width: number }[] = [];
+  private active = 0;
+
+  /** The section is near: fetch every planet's small set. */
+  prefetch() {
+    for (const b of this.bodies) if (b.maps === 'wanted' && !b.fetching && b.res === 0) this.request(b, this.small, false);
+  }
+
+  /** A planet is selected: its large set goes first. */
+  sharpen(id: string) {
+    const b = this.bodies.find((x) => x.def.id === id);
+    if (!b || b.maps === 'none' || b.res >= this.large || b.fetching >= this.large) return;
+    this.request(b, this.large, true);
+  }
+
+  /** Leaving the page: stop every fetch in flight and forget the ones waiting. */
+  cancel() {
+    this.wanted = [];
+    for (const b of this.bodies) {
+      b.abort?.abort();
+      b.abort = null;
+      if (b.fetching) { b.fetching = 0; if (b.maps === 'loading') b.maps = b.res ? 'done' : 'wanted'; }
+    }
+  }
+
+  private request(b: Body, width: number, first: boolean) {
+    this.wanted = this.wanted.filter((w) => w.body !== b);
+    if (first) this.wanted.unshift({ body: b, width }); else this.wanted.push({ body: b, width });
+    this.pump();
+  }
+
+  private pump() {
+    while (this.active < 2 && this.wanted.length) {
+      const { body, width } = this.wanted.shift()!;
+      if (body.gone || body.res >= width) continue;
+      this.active++;
+      void this.fetchSet(body, width).finally(() => { this.active--; this.pump(); });
+    }
+  }
+
+  private async fetchSet(b: Body, width: number) {
+    b.abort?.abort();
+    const abort = new AbortController();
+    b.abort = abort;
+    b.fetching = width;
+    if (b.maps === 'wanted') b.maps = 'loading';
+    const urls = ['albedo', 'normal', 'data'].map((n) => `/textures/planets/${b.def.id}_${n}_${width}.webp`);
+    // Decoded off the main thread, flipped there, and with no colour conversion: data maps must
+    // arrive exactly as stored.
+    const decode = async (url: string) => {
+      const res = await fetch(url, { signal: abort.signal });
+      if (!res.ok) throw new Error(String(res.status));
+      return createImageBitmap(await res.blob(), { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+    };
+    const results = await Promise.allSettled(urls.map(decode));
+    const bitmaps = results.map((r) => (r.status === 'fulfilled' ? r.value : null));
+    const stale = b.gone || abort.signal.aborted || b.abort !== abort;
+    if (b.abort === abort) b.abort = null;
+    if (stale || bitmaps.some((x) => !x)) {
+      bitmaps.forEach((x) => x?.close());
+      if (stale) return;
+      b.fetching = 0;
+      // A missing small set leaves the drawn surface; a missing large one keeps the small set.
+      if (!b.res) b.maps = 'none'; else b.maps = 'done';
+      for (const [i, url] of urls.entries()) if (!bitmaps[i]) console.warn(`[planets] ${b.def.id}: could not load ${url} (${await whyNot(url)}). ${b.res ? 'Keeping the smaller set.' : 'Keeping the drawn surface.'}`);
+      return;
+    }
+    const maps = (bitmaps as ImageBitmap[]).map((bitmap, i) => {
+      const t = new Texture(bitmap);
+      t.flipY = false;
+      // Albedo is colour (sRGB, decoded to linear by the GPU when sampled); the others are data.
+      t.colorSpace = i === 0 ? SRGBColorSpace : NoColorSpace;
+      t.wrapS = RepeatWrapping;
+      t.wrapT = ClampToEdgeWrapping;
+      t.minFilter = LinearMipmapLinearFilter;
+      t.magFilter = LinearFilter;
+      t.anisotropy = this.quality === 'high' ? 4 : 2;
+      t.generateMipmaps = true;
+      t.needsUpdate = true;
+      return t;
+    });
+    this.queue.push({ body: b, maps, next: 0, width });
+  }
+
+  /** Decoded maps waiting to go to the GPU, one per frame, so no frame does all the work. */
+  private queue: { body: Body; maps: Texture[]; next: number; width: number }[] = [];
+
+  private uploadOne() {
+    const job = this.queue[0];
+    if (!job) return;
+    if (job.body.gone || job.body.res >= job.width) { job.maps.forEach((t) => { (t.image as ImageBitmap).close?.(); t.dispose(); }); this.queue.shift(); return; }
+    this.upload(job.maps[job.next++]);
+    if (job.next < job.maps.length) return;
+    this.queue.shift();
+    const b = job.body;
+    // Swap only once the whole new set is on the GPU, then free the old one: no flicker.
+    const old = b.textures;
+    b.textures = job.maps;
+    const u = b.body.material.uniforms;
+    [u.uAlbedoMap.value, u.uNormalMap.value, u.uDataMap.value] = job.maps;
+    u.uMaps.value = 1;
+    old.forEach((t) => { (t.image as ImageBitmap).close?.(); t.dispose(); });
+    b.res = job.width;
+    if (b.fetching === job.width) b.fetching = 0;
+    b.maps = 'done';
   }
 
   /** Show only these planets; the others leave and the orbits close up. */
@@ -348,7 +977,7 @@ export class PlanetSystem {
 
   /** Space between orbits: it narrows as projects are added, so a long list still fits the frame. */
   private get step() {
-    return Math.min(SLOT_STEP, Math.max(0.72, 3.9 / Math.max(1, this.bodies.length)));
+    return Math.min(SLOT_STEP, Math.max(0.72, 6.5 / Math.max(1, this.bodies.length)));
   }
 
   private make(def: PlanetDef, count: number): Body {
@@ -359,8 +988,24 @@ export class PlanetSystem {
     const dark = accent.clone().multiplyScalar(0.22).lerp(DEEP, 0.45);
     const light = accent.clone().lerp(WHITE, 0.45);
     // The kinds of surface take turns down the list, so neighbours never look alike.
-    const type = (def.rank + Math.floor(seeded('orbit')() * 3)) % 3;
-    const size = (def.featured ? 0.5 - 0.045 * Math.min(def.rank, 4) : 0.3) * (0.92 + 0.16 * rnd());
+    const look = def.look ? LOOKS[def.look] : null;
+    const type = look ? look.type : (def.rank + Math.floor(seeded('orbit')() * 3)) % 3;
+    const sf = look?.surface ?? { relief: 4, fine: 0.8, displace: 0.02, emit: 0.6, albedo: 0.6, saturation: 1, polish: 0.3 };
+    // Planets without a designed look: banded giants get a wide ring of their own colours.
+    const ringConfig = look ? look.ring : type === 1 ? { inner: 1.4, outer: 2.25, glow: 0 } : undefined;
+    const size = def.size
+      ? (def.size === 'medium-large' ? 0.5 : 0.42)
+      : (def.featured ? 0.5 - 0.045 * Math.min(def.rank, 4) : 0.3) * (0.92 + 0.16 * rnd());
+    const second = new Color(def.accent2 ?? look?.second ?? '#bda5ec');
+    // The halo: the planet's colour, leaning to its second colour where the look asks for it.
+    const airColor = base.clone().lerp(new Color('#bda5ec'), look ? 0.15 : 0.5).lerp(second, look?.airMix ?? 0);
+    // Points of light for the network look, spread evenly with a little disorder.
+    const nodes = Array.from({ length: 10 }, (_, i) => {
+      const y = 0.85 - (1.7 * (i + 0.5)) / 10 + (rnd() - 0.5) * 0.12;
+      const a = i * 2.39996 + (rnd() - 0.5) * 0.5;
+      const r = Math.sqrt(Math.max(0, 1 - y * y));
+      return new Vector3(Math.cos(a) * r, y, Math.sin(a) * r).normalize();
+    });
 
     const body = new Mesh(this.sphere, new ShaderMaterial({
       vertexShader: BODY_VERT,
@@ -377,12 +1022,23 @@ export class PlanetSystem {
         uSun: { value: new Vector3(0, 0, 1) },
         uKey: { value: new Vector3(-0.62, 0.5, 0.6).normalize() },
         uMoon: { value: this.moonView },
+        uSecond: { value: second.clone().convertSRGBToLinear() },
+        uAir: { value: airColor.clone().convertSRGBToLinear() },
+        uNodes: { value: nodes },
+        uPole: { value: new Vector3(...(look?.pole ?? [0.35, 0.45, 0.82])).normalize() },
+        uTime: this.time,
+        uMaps: { value: 0 },
+        uAlbedoMap: { value: null },
+        uNormalMap: { value: null },
+        uDataMap: { value: null },
+        uSurface: { value: new Vector4(sf.relief, sf.fine, sf.emit, 0) },
+        uSurface2: { value: new Vector4(sf.saturation, sf.polish, this.quality === 'high' ? sf.displace : 0, sf.albedo) },
       },
     }));
     const air = new Mesh(this.sphere, new ShaderMaterial({
       vertexShader: AIR_VERT,
       fragmentShader: AIR_FRAG,
-      uniforms: { uColor: { value: base.clone().lerp(new Color('#bda5ec'), 0.5).convertSRGBToLinear() }, uSun: body.material.uniforms.uSun, uStrength: { value: 0.9 } },
+      uniforms: { uColor: body.material.uniforms.uAir, uSun: body.material.uniforms.uSun, uStrength: { value: look?.air ?? 0.9 } },
       side: BackSide,
       transparent: true,
       depthWrite: false,
@@ -398,20 +1054,73 @@ export class PlanetSystem {
     holder.add(axis, air);
 
     let ring: Body['ring'] = null;
-    // Banded giants carry a ring.
-    if (type === 1) {
-      const inner = 1.4;
-      const outer = 2.25;
+    if (ringConfig) {
+      const { inner, outer, glow } = ringConfig;
       ring = new Mesh(new RingGeometry(inner, outer, 128, 1), new ShaderMaterial({
         vertexShader: RING_VERT,
         fragmentShader: RING_FRAG,
-        uniforms: { uBase: body.material.uniforms.uBase, uLight: body.material.uniforms.uLight, uSeed: { value: rnd() * 10 }, uDim: body.material.uniforms.uDim, uIn: { value: inner }, uOut: { value: outer } },
+        uniforms: { uBase: body.material.uniforms.uBase, uLight: body.material.uniforms.uLight, uSeed: { value: rnd() * 10 }, uDim: body.material.uniforms.uDim, uIn: { value: inner }, uOut: { value: outer }, uGlow: { value: glow }, uTint: body.material.uniforms.uSecond },
         side: DoubleSide,
         transparent: true,
         depthWrite: false,
       }));
+      // In the planet's equator, well clear of the ground and of the halo.
       ring.rotation.x = -Math.PI / 2;
       axis.add(ring);
+    }
+
+    let clouds: Body['clouds'] = null;
+    // Low-end devices skip the secondary layers: the planet itself keeps its identity.
+    if (look?.clouds && this.quality !== 'low') {
+      const c = look.clouds;
+      clouds = new Mesh(this.sphere, new ShaderMaterial({
+        vertexShader: CLOUD_VERT,
+        fragmentShader: CLOUD_FRAG,
+        uniforms: {
+          uColor: { value: new Color(c.color).convertSRGBToLinear() },
+          uCoverage: { value: c.coverage },
+          uScale: { value: c.scale },
+          uOpacity: { value: c.opacity },
+          uSwirl: { value: c.swirl ? 1 : 0 },
+          uPole: body.material.uniforms.uPole,
+          uSeed: { value: rnd() * 20 },
+          uTime: this.time,
+          uDim: body.material.uniforms.uDim,
+          uSun: body.material.uniforms.uSun,
+          uKey: body.material.uniforms.uKey,
+        },
+        transparent: true,
+        depthWrite: false,
+      }));
+      clouds.scale.setScalar(1.035);
+      axis.add(clouds);
+    }
+
+    let debris: Object3D | null = null;
+    let rockMaterial: ShaderMaterial | null = null;
+    if (look?.debris && this.quality !== 'low') {
+      rockMaterial = new ShaderMaterial({
+        vertexShader: ROCK_VERT,
+        fragmentShader: ROCK_FRAG,
+        uniforms: { uColor: { value: new Color(look.debris.color).convertSRGBToLinear() }, uSun: body.material.uniforms.uSun, uKey: body.material.uniforms.uKey, uDim: body.material.uniforms.uDim },
+      });
+      debris = new Object3D();
+      debris.rotation.set(0.5, 0, 0.25);
+      const rocks = new InstancedMesh(this.rock, rockMaterial, look.debris.count);
+      const place = new Object3D();
+      for (let i = 0; i < look.debris.count; i++) {
+        const a = (i / look.debris.count) * Math.PI * 2 + rnd() * 0.8;
+        const r = 1.35 + rnd() * 0.4;
+        place.position.set(Math.cos(a) * r, (rnd() - 0.5) * 0.25, Math.sin(a) * r);
+        place.scale.set(0.025 + rnd() * 0.03, 0.02 + rnd() * 0.02, 0.025 + rnd() * 0.025);
+        place.rotation.set(rnd() * 6, rnd() * 6, rnd() * 6);
+        place.updateMatrix();
+        rocks.setMatrixAt(i, place.matrix);
+      }
+      // The rocks' bounds are not the base shape's: never cull them on that.
+      rocks.frustumCulled = false;
+      debris.add(rocks);
+      holder.add(debris);
     }
     this.group.add(holder);
 
@@ -421,15 +1130,25 @@ export class PlanetSystem {
       body,
       air,
       ring,
+      clouds,
+      debris,
+      rockMaterial,
+      gone: false,
+      maps: def.textures ? 'wanted' : 'none',
+      textures: [],
+      res: 0,
+      fetching: 0,
+      abort: null,
       size,
       orbit: {
         a: SLOT0,
-        e: 0.03 + 0.1 * rnd(),
-        incl: (rnd() - 0.5) * 0.42,
+        // Circles centred on the Moon. (The draw is still taken, so the other values stay as they were.)
+        e: rnd() * 0,
+        incl: (rnd() - 0.5) * 0.24,
         node: rnd() * Math.PI * 2,
         // Start spread around the Moon, each a little off an even share.
-        angle: (def.rank / Math.max(1, count)) * Math.PI * 2 + rnd() * 0.9 + 0.4,
-        speed: 0.85 + 0.3 * rnd(),
+        angle: (def.rank / Math.max(1, count)) * Math.PI * 2 + rnd() * 0.35 + 0.4,
+        speed: 0.92 + 0.16 * rnd(),
         spin: (0.06 + 0.08 * rnd()) * (rnd() > 0.2 ? 1 : -1),
       },
       live: { a: SLOT0, presence: 1, hover: 0, dim: 0 },
@@ -455,6 +1174,12 @@ export class PlanetSystem {
   }
 
   private drop(b: Body) {
+    b.gone = true;
+    b.abort?.abort();
+    b.textures.forEach((t) => { (t.image as ImageBitmap).close?.(); t.dispose(); });
+    b.textures = [];
+    b.clouds?.material.dispose();
+    b.rockMaterial?.dispose();
     gsap.killTweensOf(b.live);
     this.group.remove(b.holder);
     b.body.material.dispose();
@@ -467,14 +1192,18 @@ export class PlanetSystem {
    * scroll through it. `sun` is the sun direction in view space; the Moon's place and size are given
    * in world space and its centre is turned into view space for the shadow.
    */
-  update(o: { dt: number; weight: number; progress: number; moon: Vector3; moonRadius: number }) {
+  update(o: { dt: number; weight: number; progress: number; moon: Vector3; moonRadius: number; turn: number }) {
     const on = o.weight > 0.001 && this.bodies.length > 0;
     this.group.visible = on;
     if (this.lastProgress < 0) this.lastProgress = o.progress;
     const scrolled = o.progress - this.lastProgress;
     this.lastProgress = o.progress;
+    // Uploads happen on any frame, so they are done before the orbit is reached.
+    this.uploadOne();
     if (!on) return;
+    this.time.value += o.dt;
     this.group.position.copy(o.moon);
+    this.group.rotation.y = o.turn;
     this.group.scale.setScalar(o.moonRadius);
     this.group.updateMatrixWorld();
 
@@ -482,7 +1211,7 @@ export class PlanetSystem {
       const k = b.orbit;
       const a = b.live.a;
       // Kepler-like: outer planets go round more slowly. The scroll also carries them along.
-      k.angle += (0.3 * Math.pow(SLOT0 / a, 1.5) * k.speed) * o.dt + scrolled * 1.6 * Math.pow(SLOT0 / a, 0.5);
+      k.angle += (0.24 * Math.pow(SLOT0 / a, 0.6) * k.speed) * o.dt + scrolled * 0.35 * Math.pow(SLOT0 / a, 0.5);
       // Crowded systems get rounder orbits, so neighbours do not cross.
       const e = k.e * (this.step / SLOT_STEP);
       const r = (a * (1 - e * e)) / (1 + e * Math.cos(k.angle));
@@ -499,6 +1228,8 @@ export class PlanetSystem {
       b.holder.scale.setScalar(Math.max(s, 1e-4));
       b.holder.visible = s > 0.002;
       b.body.rotation.y += k.spin * o.dt;
+      if (b.debris) b.debris.rotation.y += 0.22 * o.dt;
+      if (b.clouds) b.clouds.rotation.y += k.spin * 0.35 * o.dt;
       const u = b.body.material.uniforms;
       u.uHover.value = b.live.hover;
       u.uDim.value = b.live.dim;
@@ -559,5 +1290,6 @@ export class PlanetSystem {
     for (const b of this.bodies) this.drop(b);
     this.bodies = [];
     this.sphere.dispose();
+    this.rock.dispose();
   }
 }

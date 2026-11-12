@@ -3,7 +3,7 @@
 // `compact` is the short form used for projects that are not featured.
 import { Image } from 'astro:assets';
 import { t, type Lang } from '../i18n/ui';
-import { slugOf, type Project } from '../lib';
+import { isPrivate, slugOf, type Project } from '../lib';
 import Planet from './Planet.astro';
 import StatusBadge from './StatusBadge.astro';
 interface Props { lang: Lang; project: Project; index: number; compact?: boolean }
@@ -13,17 +13,21 @@ const slug = slugOf(project);
 const href = `/${lang}/projects/${slug}/`;
 const portrait = d.videoOrientation === 'portrait';
 const number = String(index + 1).padStart(2, '0');
+// Private projects: name and summary only.
+const priv = isPrivate(project);
 ---
 {compact ? (
   <article class="exp-row" style={`--accent:${d.accent}`}>
     <Planet accent={d.accent} />
-    <h4><a href={href}>{d.title}</a> <StatusBadge lang={lang} status={d.status} /></h4>
+    <h4>{priv ? d.title : <a href={href}>{d.title}</a>} <StatusBadge lang={lang} status={d.status} /></h4>
     <p>{d.summary}</p>
-    <div class="exp-links">
-      <a class="link" href={href}>{t(lang, 'work.open')}</a>
-      <a class="link ext" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>
-      {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
-    </div>
+    {!priv && (
+      <div class="exp-links">
+        <a class="link" href={href}>{t(lang, 'work.open')}</a>
+        {d.repo && <a class="link ext" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>}
+        {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
+      </div>
+    )}
   </article>
 ) : (
   <article class={`exp ${portrait ? 'portrait' : 'landscape'}`} style={`--accent:${d.accent}`}>
@@ -31,9 +35,14 @@ const number = String(index + 1).padStart(2, '0');
       <div class="orbit"><i></i></div>
       <a class={`exp-shot ${portrait ? 'portrait' : 'landscape'}`} href={href} aria-label={`${t(lang, 'work.open')}: ${d.title}`} data-depth="0.08">
         {d.loop ? (
-          <video data-autoplay data-src={d.loop} poster={d.loop.replace('.mp4', '.jpg')} muted loop playsinline preload="none"
-            width={portrait ? 560 : 1280} height={portrait ? 1212 : 800} aria-label={d.coverAlt}></video>
-        ) : (
+          <>
+            {/* The poster is set by script when the clip is about to be seen, so a hidden list
+                downloads nothing. Without script, a lazy picture stands in. */}
+            <video data-autoplay data-src={d.loop} data-poster={d.loop.replace('.mp4', '.jpg')} muted loop playsinline preload="none"
+              width={portrait ? 560 : 1280} height={portrait ? 1212 : 800} aria-label={d.coverAlt}></video>
+            <noscript><img src={d.loop.replace('.mp4', '.jpg')} alt={d.coverAlt} loading="lazy" width={portrait ? 560 : 1280} height={portrait ? 1212 : 800} /></noscript>
+          </>
+        ) : d.cover && (
           <Image src={d.cover} alt={d.coverAlt} widths={portrait ? [360, 560, 780] : [640, 1024, 1680]}
             sizes={portrait ? '290px' : '(min-width: 960px) 56vw, 100vw'} loading="lazy" />
         )}
@@ -47,7 +56,7 @@ const number = String(index + 1).padStart(2, '0');
       <p class="exp-tech hud" data-r style="--d:3">{d.stack.join(' · ')}</p>
       <div class="exp-links" data-r style="--d:4">
         <a class="btn" href={href}>{t(lang, 'work.open')}</a>
-        <a class="link ext" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>
+        {d.repo && <a class="link ext" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>}
         {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
       </div>
     </div>

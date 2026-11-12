@@ -4,6 +4,8 @@ import { projectSort } from './data/site';
 
 export type Project = CollectionEntry<'projects'>;
 export const slugOf = (p: Project) => p.id.split('/')[1];
+/** Private projects show a name and a summary; they have no page and no links. */
+export const isPrivate = (p: Project) => p.data.status === 'private';
 
 /** Published projects of one language: featured first, then by priority or by date. */
 export async function projectsFor(lang: Lang, sort: 'priority' | 'date' = projectSort): Promise<Project[]> {
