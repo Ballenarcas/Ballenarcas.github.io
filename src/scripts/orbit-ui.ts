@@ -2,7 +2,7 @@
 // the project panel and Escape. It never moves the camera itself: it asks the scene,
 // whose single director owns the camera.
 import type { MoonScene, OrbitState } from './space/scene';
-import type { PlanetDef } from './space/planets';
+import type { Look, PlanetDef } from './space/planets';
 
 export function orbitUi(scene: MoonScene): () => void {
   const stage = document.querySelector<HTMLElement>('[data-orbit-stage]');
@@ -24,6 +24,9 @@ export function orbitUi(scene: MoonScene): () => void {
     accent: b.dataset.accent!,
     featured: b.dataset.featured === 'true',
     rank: i,
+    look: (b.dataset.look as Look) || undefined,
+    accent2: b.dataset.accent2 || undefined,
+    size: (b.dataset.size as PlanetDef['size']) || undefined,
   }));
   scene.setPlanets(defs);
   scene.showPlanets(defs.map((d) => d.id));

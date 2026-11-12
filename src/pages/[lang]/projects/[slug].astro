@@ -10,7 +10,8 @@ import { author, t, type Lang } from '../../../i18n/ui';
 import { projectsFor, slugOf } from '../../../lib';
 
 export async function getStaticPaths() {
-  const all = await getCollection('projects', (p) => !(import.meta.env.PROD && p.data.draft));
+  // Private projects get no page.
+  const all = await getCollection('projects', (p) => !(import.meta.env.PROD && p.data.draft) && p.data.status !== 'private');
   return all.map((entry) => {
     const [lang, slug] = entry.id.split('/');
     return { params: { lang, slug }, props: { entry } };
@@ -21,7 +22,7 @@ const lang = Astro.params.lang as Lang;
 const slug = Astro.params.slug;
 const d = entry.data;
 const { Content } = await render(entry);
-const list = await projectsFor(lang);
+const list = (await projectsFor(lang)).filter((p) => p.data.status !== 'private');
 const next = list[(list.findIndex((p) => p.id === entry.id) + 1) % list.length];
 const portrait = d.videoOrientation === 'portrait';
 const poster = d.videoPoster ? await getImage({ src: d.videoPoster, width: portrait ? 720 : 1280, format: 'webp' }) : undefined;
@@ -53,7 +54,7 @@ const jsonLd = {
         <div class="wide"><dt class="hud">{t(lang, 'project.stack')}</dt><dd>{d.stack.join(' · ')}</dd></div>
       </dl>
       <p class="exp-links" data-r style="--d:4">
-        <a class="btn" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>
+        {d.repo && <a class="btn" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>}
         {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
       </p>
     </div>
@@ -67,7 +68,7 @@ const jsonLd = {
       </div>
     ) : (
       <figure class={`film ${portrait ? 'portrait' : 'landscape'}`} data-r style="--d:2">
-        <Image src={d.cover} alt={d.coverAlt} widths={portrait ? [360, 560, 780] : [640, 1024, 1680]} sizes="(min-width: 1024px) 55vw, 100vw" />
+        {d.cover && <Image src={d.cover} alt={d.coverAlt} widths={portrait ? [360, 560, 780] : [640, 1024, 1680]} sizes="(min-width: 1024px) 55vw, 100vw" />}
       </figure>
     )}
   </header>

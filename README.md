@@ -39,6 +39,8 @@ Projects are data. Nothing about a project is written in a component.
    | `accent` | Colour of the project's planet |
    | `repo`, `demo` | Links. Leave `demo` out when there is none |
    | `draft` | `true` hides the project from the published site |
+   | `planet`, `accent2`, `planetSize` | Optional. The planet's designed look in the 3D orbit (`tech`, `organic`, `network`, `celestial`), its second colour and its size. Without `planet`, a surface is picked automatically |
+   | `status: "private"` | The project shows only its name and summary: no page, no links, no stack. `repo`, `cover` and `tagline` can then be left out |
 
 4. **Push to `main`.** The project appears among the expeditions, gets its own page in both languages and joins the "next expedition" chain.
 

@@ -3,7 +3,7 @@
 // project's data file; the button keeps leading to the project's own page.
 import { Image } from 'astro:assets';
 import { t, type Lang } from '../i18n/ui';
-import { slugOf, type Project } from '../lib';
+import { isPrivate, slugOf, type Project } from '../lib';
 import Planet from './Planet.astro';
 import StatusBadge from './StatusBadge.astro';
 interface Props { lang: Lang; project: Project; index: number }
@@ -12,24 +12,32 @@ const d = project.data;
 const slug = slugOf(project);
 const href = `/${lang}/projects/${slug}/`;
 const number = String(index + 1).padStart(2, '0');
+// A private project shows its name and public summary only: no page, no links, no technical detail.
+const priv = isPrivate(project);
 ---
 <article class="orbit-card" data-card={slug} hidden style={`--accent:${d.accent}`}>
-  <a class="orbit-cover" href={href} tabindex="-1" aria-hidden="true">
-    <Image src={d.cover} alt="" widths={[420, 760]} sizes="(max-width: 700px) 92vw, 380px" loading="lazy" />
-  </a>
+  {!priv && d.cover && (
+    <a class="orbit-cover" href={href} tabindex="-1" aria-hidden="true">
+      <Image src={d.cover} alt="" widths={[420, 760]} sizes="(max-width: 700px) 92vw, 380px" loading="lazy" />
+    </a>
+  )}
   <p class="exp-meta hud"><span>{lang === 'es' ? 'Expedición' : 'Expedition'} {number}</span><StatusBadge lang={lang} status={d.status} /></p>
   <div class="orbit-title">
     <Planet accent={d.accent} name={`planet-${slug}`} />
-    <h3 id={`card-${slug}`}><a href={href} transition:name={`title-${slug}`}>{d.title}</a></h3>
+    <h3 id={`card-${slug}`}>{priv ? d.title : <a href={href} transition:name={`title-${slug}`}>{d.title}</a>}</h3>
   </div>
-  <p class="orbit-tagline">{d.tagline}</p>
+  {d.tagline && <p class="orbit-tagline">{d.tagline}</p>}
   <p class="orbit-summary">{d.summary}</p>
-  <ul class="orbit-stack hud" aria-label={t(lang, 'project.stack')}>
-    {d.stack.map((s) => <li>{s}</li>)}
-  </ul>
-  <div class="exp-links">
-    <a class="btn" href={href}>{t(lang, 'work.open')}</a>
-    <a class="link ext" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>
-    {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
-  </div>
+  {!priv && d.stack.length > 0 && (
+    <ul class="orbit-stack hud" aria-label={t(lang, 'project.stack')}>
+      {d.stack.map((s) => <li>{s}</li>)}
+    </ul>
+  )}
+  {!priv && (
+    <div class="exp-links">
+      <a class="btn" href={href}>{t(lang, 'work.open')}</a>
+      {d.repo && <a class="link ext" href={d.repo} rel="noopener">{t(lang, 'work.repo')}</a>}
+      {d.demo && <a class="link ext" href={d.demo} rel="noopener">{t(lang, 'work.demo')}</a>}
+    </div>
+  )}
 </article>

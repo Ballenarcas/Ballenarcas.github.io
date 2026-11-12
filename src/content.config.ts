@@ -9,9 +9,10 @@ const projects = defineCollection({
   schema: ({ image }) =>
     z.object({
       title: z.string(),
-      tagline: z.string(),
+      tagline: z.string().optional(),
       summary: z.string().max(220),
-      status: z.enum(['completed', 'in-progress', 'archived']),
+      /** `private`: the project shows its name and summary only. It gets no page of its own and no links. */
+      status: z.enum(['completed', 'in-progress', 'archived', 'private']),
       /** Featured projects get a full expedition; the rest are listed compactly under them. */
       featured: z.boolean().default(false),
       /** Kinds of project. Kept in the data; the site does not show them at the moment. */
@@ -23,13 +24,17 @@ const projects = defineCollection({
       role: z.string().optional(),
       context: z.string().optional(),
       year: z.number().int(),
-      stack: z.array(z.string()).min(1),
-      repo: z.string().url(),
+      stack: z.array(z.string()).default([]),
+      repo: z.string().url().optional(),
       demo: z.string().url().optional(),
       /** Colour of the project's planet. */
       accent: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-      cover: image(),
-      coverAlt: z.string(),
+      /** The planet in the 3D orbit: a designed look, its second colour and its size. All optional. */
+      planet: z.enum(['tech', 'organic', 'network', 'celestial']).optional(),
+      accent2: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      planetSize: z.enum(['medium', 'medium-large']).optional(),
+      cover: image().optional(),
+      coverAlt: z.string().default(''),
       gallery: z.array(z.object({ src: image(), alt: z.string() })).default([]),
       // Films live in public/videos. `loop` is the short silent clip, `video` the full film.
       loop: z.string().optional(),
