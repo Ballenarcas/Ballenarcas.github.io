@@ -531,7 +531,7 @@ export class MoonScene implements SpaceRenderer {
     this.stars.renderOrder = 0;
     this.glow.renderOrder = 1;
     this.moon.renderOrder = 2;
-    this.planets = new PlanetSystem(quality);
+    this.planets = new PlanetSystem(quality, (t) => this.renderer.initTexture(t));
     this.scene.add(this.stars, this.glow, this.moon, this.planets.group);
 
     canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
@@ -696,6 +696,7 @@ export class MoonScene implements SpaceRenderer {
     s.uFade.value = Math.min(1, f.intro * 2.2);
 
     this.renderer.render(this.scene, this.camera);
+    this.warm();
     this.report();
     this.watch(f);
   }
@@ -778,7 +779,35 @@ export class MoonScene implements SpaceRenderer {
 
   get busy() { return this.weight > 0.001 || !this.director.settled; }
 
-  setPlanets(defs: PlanetDef[]) { this.planets.set(defs); }
+  setPlanets(defs: PlanetDef[]) {
+    this.planets.set(defs);
+    // Compile the planets' shaders now, in the background where the browser allows it, instead of
+    // in the first frame they are seen. Hidden objects are skipped by the compiler, so the system
+    // is shown just for the call.
+    const shown = this.planets.group.visible;
+    this.planets.group.visible = true;
+    if (this.renderer.extensions.has('KHR_parallel_shader_compile')) void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
+    else this.renderer.compile(this.scene, this.camera);
+    this.planets.group.visible = shown;
+    this.warmed = false;
+  }
+
+  /** Once the planets' textures are on the GPU, draw the whole system once into a single pixel, far
+   *  from the orbit, so the driver finishes preparing everything before the first frame that shows it. */
+  private warmed = true;
+  private warm() {
+    if (this.warmed || this.weight > 0.001 || !this.planets.ready) return;
+    this.warmed = true;
+    const g = this.planets.group;
+    const was = g.visible;
+    g.visible = true;
+    g.traverse((o) => { o.visible = true; });
+    this.renderer.setScissorTest(true);
+    this.renderer.setScissor(0, 0, 1, 1);
+    this.renderer.render(this.scene, this.camera);
+    this.renderer.setScissorTest(false);
+    g.visible = was;
+  }
   showPlanets(ids: string[]) {
     this.planets.show(ids);
     // The framing of the exploration changes with the planets on show: blend into it, never cut.
