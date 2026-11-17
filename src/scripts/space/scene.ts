@@ -799,8 +799,8 @@ export class MoonScene implements SpaceRenderer {
     // is shown just for the call.
     const shown = this.planets.group.visible;
     this.planets.group.visible = true;
+    // Compiled in the background where the browser can; otherwise at the first idle moment (preload).
     if (this.renderer.extensions.has('KHR_parallel_shader_compile')) void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
-    else this.renderer.compile(this.scene, this.camera);
     this.planets.group.visible = shown;
     // Warm-up at the first idle moment after load, not when the section approaches: the shader
     // programs do not depend on the textures, and the visitor is not scrolling yet.

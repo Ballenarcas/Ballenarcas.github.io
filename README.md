@@ -103,7 +103,7 @@ Add `?high`, `?medium`, `?low` or `?flat` to the address to force one of them wh
 2. The 3D Moon, with a light 1K map (110 KB) and its 1K relief (355 KB), on every device.
 3. The planets' textures, only when the projects section is about a screen and a half away (or behind the loading screen): one light set per planet (512 wide on computers, 256 on phones), most important first, two at a time, decoded off the main thread.
 
-Fetches are cancelled when leaving the page. The planets' shaders are compiled when they are set up, and drawn once into one pixel at the first idle moment, so the first frame that shows them is not the one that prepares them.
+Nothing blocks the page: there is no loading screen. The head script asks for the 3D scene's code and the Moon's first map at once (the chunk name is written in at build time by the `preload-scene` integration in `astro.config.mjs`), the Moon fades in when ready, and at the first idle moment the planets are prepared in the background: textures, shaders and one draw into a single pixel. Fetches are cancelled when leaving the page.
 
 ## Credits
 

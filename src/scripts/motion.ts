@@ -30,26 +30,13 @@ function tier(): 'high' | 'medium' | 'low' | 'flat' {
   return matchMedia('(max-width: 820px)').matches ? 'medium' : 'high';
 }
 
-/** The loading screen: a progress value, then a fade. It hides itself after 7 s whatever happens. */
-const loader = {
-  set(f: number) { document.getElementById('loader')?.style.setProperty('--p', Math.max(0.05, Math.min(1, f)).toFixed(3)); },
-  done() {
-    const el = document.getElementById('loader');
-    if (!el || el.classList.contains('done')) return;
-    el.classList.add('done');
-    el.setAttribute('aria-hidden', 'true');
-  },
-};
-
 /** Start the space scene once; it then lives across page changes. */
 function space() {
   const root = document.getElementById('space');
   if (!root) return;
   if (controller) { controller.bind(); return; }
   // Reduced motion: a still Moon placed by CSS, nothing follows the scroll.
-  if (reduced()) { root.classList.add('is-static'); document.documentElement.classList.remove('orbit-on'); loader.done(); return; }
-  setTimeout(() => loader.done(), 7000);
-  loader.set(0.1);
+  if (reduced()) { root.classList.add('is-static'); document.documentElement.classList.remove('orbit-on'); return; }
 
   const canvas = root.querySelector('canvas')!;
   const picture = root.querySelector<HTMLElement>('.moon2d')!;
@@ -59,7 +46,6 @@ function space() {
     orbit = false;
     document.documentElement.classList.remove('orbit-on');
     root.classList.add('is-flat');
-    loader.done();
     controller!.attach(new FlatRenderer(picture));
     controller!.bind();
     ScrollTrigger.refresh();
@@ -71,14 +57,14 @@ function space() {
   else {
     scene = import('./space/scene')
       .then(async ({ MoonScene }) => {
-        loader.set(0.25);
         const s = new MoonScene(canvas, level);
         await s.ready;
-        loader.set(0.4);
         controller!.attach(s);
         root.classList.add('is-live');
-        // Everything heavy happens now, behind the loading screen, not while scrolling.
-        void s.preload((f) => loader.set(0.4 + 0.6 * f)).finally(() => loader.done());
+        // The page never waits for this: the planets are prepared in the background, at the first
+        // idle moment once the Moon is up (textures, shaders and a first draw).
+        const later = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 5000 }) : setTimeout(fn, 2500));
+        later(() => void s.preload(() => {}));
         return s;
       })
       .catch(flat);
