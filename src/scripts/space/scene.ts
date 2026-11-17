@@ -488,6 +488,7 @@ export class MoonScene implements SpaceRenderer {
   private relief: Texture | null = null;
   private detail: number;
   private pixelRatio: number;
+  private maxRatio: number;
   // Frame-time watch: if the device cannot keep up, quality steps down by itself.
   private slow = 0;
   private frames = 0;
@@ -495,7 +496,9 @@ export class MoonScene implements SpaceRenderer {
 
   constructor(private canvas: HTMLCanvasElement, private quality: Quality) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-    this.pixelRatio = Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1);
+    // Start at a moderate resolution; the frame watch raises it while the device keeps up.
+    this.maxRatio = Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1);
+    this.pixelRatio = Math.min(this.maxRatio, quality === 'high' ? 1.25 : 1);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setClearColor(0x000000, 0);
     this.detail = quality === 'high' ? 1 : 0;
@@ -541,22 +544,14 @@ export class MoonScene implements SpaceRenderer {
     // replaces it as soon as it arrives (and the 4K one later, where it is worth it).
     this.ready = this.loadMap('/textures/moon-1k.webp').then(() => {
       this.moon.visible = true;
-      void this.loadMap('/textures/moon-2k.webp').catch(() => undefined);
-      // The measured relief comes after the first picture; until then the surface is smooth.
-      // Phones get the 1K relief: the Moon is never large enough there for the 2K one to show.
-      void this.loadHeight(quality === 'high' ? '/textures/moon-relief-2k.webp' : '/textures/moon-relief-1k.webp').catch(() => undefined);
-      // The 4K map is a later improvement, only where the screen can show it and the connection
-      // is not slow or saving data.
-      const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-      const bigScreen = Math.max(innerWidth, innerHeight) * (devicePixelRatio || 1) >= 2200;
-      const fastNet = !conn || (!conn.saveData && !/(^|-)(2g|3g)$/.test(conn.effectiveType ?? ''));
-      if (quality === 'high' && bigScreen && fastNet) {
-        const upgrade = () => void this.loadMap('/textures/moon-4k.webp').catch(() => undefined);
-        if ('requestIdleCallback' in window) requestIdleCallback(upgrade, { timeout: 4000 });
-        else setTimeout(upgrade, 2500);
-      }
+      // Light textures everywhere: the 1K map and the 1K relief. Larger maps cost more to fetch and
+      // to upload than they add on screen.
+      this.detailReady = this.loadHeight('/textures/moon-relief-1k.webp').catch(() => undefined).then(() => undefined);
     });
   }
+
+  /** The Moon's relief is in. */
+  private detailReady: Promise<void> = Promise.resolve();
 
   /** Width of the Moon map in use: a map only ever replaces a smaller one, whatever order they arrive in. */
   private mapWidth = 0;
@@ -830,6 +825,40 @@ export class MoonScene implements SpaceRenderer {
     for (const [o, v] of shown) o.visible = v;
   }
 
+  /** The heavy work, done once behind the loading screen so scrolling never has to: the planets'
+   *  textures (small sets), every shader compiled, and one first draw of the whole system.
+   *  `progress` receives 0..1. Resolves after at most `limit` ms whatever is left. */
+  async preload(progress: (f: number) => void, textureBudget = 3000) {
+    const start = performance.now();
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    // The Moon's full maps first, so they are never swapped in mid-scroll (within a budget).
+    await Promise.race([this.detailReady, wait(textureBudget)]);
+    progress(0.3);
+    // The page sets up its planets just after the scene starts; pages without planets go on.
+    while (!this.planets.ids.length && performance.now() - start < 1200) await wait(60);
+    // Planet textures get a short budget: on a slow connection they keep streaming afterwards,
+    // and the screen does not wait for the network. While it shows, uploads are not spread out.
+    this.planets.prefetch();
+    this.planets.bulk = true;
+    const t = performance.now();
+    while (!this.planets.ready && performance.now() - t < textureBudget) {
+      progress(0.3 + Math.min(0.55, this.planets.loaded * 0.55));
+      await wait(80);
+    }
+    this.planets.bulk = false;
+    progress(0.9);
+    const shown: [Object3D, boolean][] = [];
+    this.planets.group.traverse((o) => { shown.push([o, o.visible]); o.visible = true; });
+    this.renderer.compile(this.scene, this.camera);
+    this.renderer.setScissorTest(true);
+    this.renderer.setScissor(0, 0, 1, 1);
+    this.renderer.render(this.scene, this.camera);
+    this.renderer.setScissorTest(false);
+    for (const [o, v] of shown) o.visible = v;
+    this.warmed = true;
+    progress(1);
+  }
+
   /** The projects section is near: start streaming the planets' textures. */
   prefetchPlanets() { this.planets.prefetch(); }
   /** Leaving the page: stop fetching. */
@@ -861,25 +890,37 @@ export class MoonScene implements SpaceRenderer {
   }
 
   /** Steps quality down when frames keep arriving late. */
+  /** Adaptive quality: every 40 frames, look at how many arrived late. Too many: drop the fine
+   *  detail first, then the resolution a quarter step at a time (down to 0.75). Several smooth
+   *  windows in a row: give a quarter step of resolution back. A frame counts as late under about
+   *  22 fps, so the frames the controller skips on purpose when nothing moves are not mistaken
+   *  for slowness. */
+  private good = 0;
   private watch(f: Frame) {
     const now = f.time;
     const dt = now - this.lastTime;
     this.lastTime = now;
     if (f.intro < 1 || dt <= 0 || dt > 0.25) return;
     this.frames++;
-    if (dt > 0.034) this.slow++;
-    if (this.frames < 90) return;
-    if (this.slow > 45) {
+    if (dt > 0.045) this.slow++;
+    if (this.frames < 40) return;
+    if (this.slow > 12) {
+      this.good = 0;
       if (this.detail > 0) this.detail = 0;
-      else if (this.pixelRatio > 1) {
-        this.pixelRatio = Math.max(1, this.pixelRatio - 0.5);
-        this.renderer.setPixelRatio(this.pixelRatio);
-        this.stars.material.uniforms.uPx.value = this.pixelRatio;
-        this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight, false);
-      }
+      else if (this.pixelRatio > 0.75) this.setRatio(Math.max(0.75, this.pixelRatio - 0.25));
+    } else if (this.slow === 0 && ++this.good >= 4 && this.pixelRatio < this.maxRatio) {
+      this.good = 0;
+      this.setRatio(Math.min(this.maxRatio, this.pixelRatio + 0.25));
     }
     this.frames = 0;
     this.slow = 0;
+  }
+
+  private setRatio(ratio: number) {
+    this.pixelRatio = ratio;
+    this.renderer.setPixelRatio(ratio);
+    this.stars.material.uniforms.uPx.value = ratio;
+    this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight, false);
   }
 
   dispose() {
