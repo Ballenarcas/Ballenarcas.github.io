@@ -56,8 +56,9 @@ const en = lang === 'en' ? canonical : alt;
           if ((n.connection && n.connection.saveData) || (n.deviceMemory || 8) <= 2) return;
           // No WebGL context is created here (that alone can stall a browser); the scene checks for real.
           if (!('WebGL2RenderingContext' in window)) return;
-          var q = location.search;
-          if (!/[?&](high|medium|low)\b/.test(q) && localStorage.getItem('vm-flat') === '1') return;
+          var slow = 0;
+          try { slow = Number(localStorage.getItem('vm-flat') || 0); } catch (e) {}
+          if (!/[?&](high|medium|low)\b/.test(location.search) && Date.now() - slow < 3 * 864e5) return;
           d.classList.add('orbit-on');
           // The 3D scene will run: ask for its code and the Moon's first map right away, in parallel
           // with the rest, instead of after the page's own script. (The chunk's file name is filled

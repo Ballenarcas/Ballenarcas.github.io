@@ -26,7 +26,8 @@ function tier(): 'high' | 'medium' | 'low' | 'flat' {
   if (!document.documentElement.classList.contains('orbit-on')) return 'flat';
   for (const t of ['high', 'medium', 'low'] as const) if (query.has(t)) return t;
   // This device could not keep up on an earlier visit.
-  try { if (localStorage.getItem('vm-flat') === '1') return 'flat'; } catch {}
+  // (Remembered for three days, then 3D gets another chance.)
+  try { if (Date.now() - Number(localStorage.getItem('vm-flat') || 0) < 3 * 864e5) return 'flat'; } catch {}
   const nav = navigator as Navigator & { deviceMemory?: number };
   if ((nav.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4) return 'low';
   return matchMedia('(max-width: 820px)').matches ? 'medium' : 'high';
@@ -68,7 +69,7 @@ function space() {
         // Nothing else is prepared up front: the planets wait until their section comes near.
         // If even the lowest resolution is too slow, the page goes 2D now and on later visits.
         s.onTooSlow = () => {
-          try { localStorage.setItem('vm-flat', '1'); } catch {}
+          try { localStorage.setItem('vm-flat', String(Date.now())); } catch {}
           root.classList.remove('is-live');
           scene = Promise.resolve(null);
           flat();

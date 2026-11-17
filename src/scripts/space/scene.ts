@@ -552,33 +552,45 @@ export class MoonScene implements SpaceRenderer {
     return this.planets.pick(this.camera, this.width, this.height, x, y, margin);
   }
 
-  /** Steps quality down when frames keep arriving late. */
-  /** Adaptive quality: every 40 frames, look at how many arrived late. Too many: drop the fine
-   *  detail first, then the resolution a quarter step at a time (down to 0.75). Several smooth
-   *  windows in a row: give a quarter step of resolution back. A frame counts as late under about
-   *  22 fps, so the frames the controller skips on purpose when nothing moves are not mistaken
-   *  for slowness. */
+  /** Adaptive quality: every 40 frames, look at how many arrived late (under ~14 fps, so the
+   *  frames the controller skips on purpose when nothing moves, even on a 30 fps screen, are not
+   *  mistaken for slowness). Too many: the resolution drops a quarter step (down to 0.5). Several
+   *  clean windows in a row: a quarter step back. Still slow at the lowest resolution for three
+   *  windows in a row, or a run of frames that take a fifth of a second or more: no 3D. */
   private good = 0;
   private hopeless = 0;
+  private stalls = 0;
   private watch(f: Frame) {
     const now = f.time;
     const dt = now - this.lastTime;
     this.lastTime = now;
-    if (f.intro < 1 || dt <= 0 || dt > 0.25) return;
+    // The first frames, and any gap of seconds (a hidden tab, a sleeping laptop), say nothing.
+    if (f.intro < 1 || dt <= 0 || dt > 2 || document.hidden) return;
+    if (dt > 0.2) {
+      if (++this.stalls >= 5) { this.giveUp(); return; }
+    } else this.stalls = 0;
     this.frames++;
-    if (dt > 0.045) this.slow++;
+    if (dt > 0.07) this.slow++;
     if (this.frames < 40) return;
     if (this.slow > 12) {
       this.good = 0;
       if (this.pixelRatio > 0.5) this.setRatio(Math.max(0.5, this.pixelRatio - 0.25));
-      // Still too slow at the lowest resolution, window after window: give up on 3D.
-      else if (++this.hopeless >= 3 && this.onTooSlow) { const give = this.onTooSlow; this.onTooSlow = null; give(); }
-    } else if (this.slow === 0 && ++this.good >= 4 && this.pixelRatio < this.maxRatio) {
-      this.good = 0;
-      this.setRatio(Math.min(this.maxRatio, this.pixelRatio + 0.25));
+      else if (++this.hopeless >= 3) this.giveUp();
+    } else {
+      this.hopeless = 0;
+      if (this.slow === 0 && ++this.good >= 4 && this.pixelRatio < this.maxRatio) {
+        this.good = 0;
+        this.setRatio(Math.min(this.maxRatio, this.pixelRatio + 0.25));
+      }
     }
     this.frames = 0;
     this.slow = 0;
+  }
+
+  private giveUp() {
+    const give = this.onTooSlow;
+    this.onTooSlow = null;
+    give?.();
   }
 
   private setRatio(ratio: number) {
