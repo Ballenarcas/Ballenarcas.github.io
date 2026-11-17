@@ -104,20 +104,6 @@ a { color: inherit; text-decoration: none; }
 
 .page { position: relative; z-index: 1; overflow-x: clip; }
 
-/* ---------- Loading screen (3D only) ---------- */
-.loader { display: none; }
-.orbit-on .loader { position: fixed; inset: 0; z-index: 60; display: grid; place-content: center; justify-items: center; gap: 22px; background: var(--bg);
-  transition: opacity 0.8s var(--ease), visibility 0s linear 0.8s; }
-.loader.done { opacity: 0; visibility: hidden; pointer-events: none; }
-.loader-moon { width: 74px; height: 74px; border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, #cfaef0, #7a4cc0 45%, #241040 78%);
-  box-shadow: 0 0 40px 6px rgba(140, 100, 220, 0.35); animation: loader-breathe 2.4s ease-in-out infinite; }
-.loader .hud { color: var(--silver); }
-.loader-bar { width: 180px; height: 2px; background: var(--line); border-radius: 2px; overflow: hidden; }
-.loader-bar i { display: block; height: 100%; width: 100%; background: var(--soft); transform-origin: left; transform: scaleX(var(--p, 0.05)); transition: transform 0.4s var(--ease); }
-@keyframes loader-breathe { 50% { box-shadow: 0 0 60px 12px rgba(140, 100, 220, 0.5); } }
-@media (prefers-reduced-motion: reduce) { .loader-moon { animation: none; } }
-
 /* ---------- Fixed instruments: navigation and scene rail ---------- */
 .nav { position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px var(--m); }
 .nav::before { content: ''; position: absolute; inset: 0 0 -28px 0; z-index: -1; background: linear-gradient(to bottom, rgba(8, 7, 17, 0.86), rgba(8, 7, 17, 0)); pointer-events: none; }
