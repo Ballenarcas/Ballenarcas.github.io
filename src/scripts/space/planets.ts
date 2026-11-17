@@ -221,35 +221,20 @@ void main() {
   float shine = 36.0;
 
   if (uMaps > 0.5) {
+    // The maps hold the whole look, baked offline from the planet's former live surface
+    // (tools/bake_planets.cjs): colour; normal (x east, y south) with roughness in alpha; the light
+    // the surface gives off (encoded: half, gamma 2.2) with gloss in alpha.
     mapCoords(p);
     // Near the poles an equirectangular map fans out into rays: there the maps give their average.
-    float poleFade = smoothstep(0.74, 0.93, abs(p.y));
-    vec3 nm = tex(uNormalMap).xyz * 2.0 - 1.0;
-    nm.y = -nm.y; // DirectX normal maps: green points down
-    vec4 dat = mix(tex(uDataMap), textureLod(uDataMap, suv, 10.0), poleFade);
-    nObj = normalize(p + (T * nm.x + B * nm.y) * max(uSurface.y, 0.6) * 1.2 * (1.0 - poleFade));
-    // Hollows a little darker, from the height against its blurred self.
-    float occ = clamp(1.0 + (dat.r - textureLod(uDataMap, suv, 5.0).r) * 2.4 * (1.0 - poleFade), 0.6, 1.2);
-    vec3 mapCol = mix(tex(uAlbedoMap).rgb, textureLod(uAlbedoMap, suv, 10.0).rgb, poleFade);
-    mapCol = mix(vec3(dot(mapCol, vec3(0.2126, 0.7152, 0.0722))), mapCol, uSurface2.x);
-    // The map, leaning towards the project's colours.
-    albedo = mix(mapCol, mapCol * (0.4 + 1.6 * uBase), 0.35) * occ;
-    float rough = dat.g;
-    gloss = 0.35 * uSurface2.y * (1.3 - rough);
-    shine = mix(90.0, 10.0, rough);
-    float em = dat.b;
-    if (uType > 2.5 && uType < 3.5) {
-      // Boost: the mask marks fractured ground: dark depths and light along the broken edge.
-      float zone = smoothstep(0.08, 0.35, em);
-      albedo = mix(albedo, vec3(0.008, 0.016, 0.05), zone * 0.85);
-      gloss *= 1.0 - zone;
-      emit += mix(uSecond, vec3(0.9, 0.97, 1.0), 0.3) * (zone * (1.0 - zone) * 4.0 * 0.4 + em * 0.5) * uSurface.z;
-    } else if (uType > 5.5) {
-      // Cielith: cyan glows in the dark ground.
-      emit += mix(vec3(0.25, 0.7, 1.0), uSecond, 0.4) * em * uSurface.z * 0.8;
-    } else {
-      emit += uSecond * em * uSurface.z * (uType > 4.5 ? 0.7 : 1.0);
-    }
+    float poleFade = smoothstep(0.8, 0.95, abs(p.y));
+    vec4 nr = tex(uNormalMap);
+    vec3 nm = nr.xyz * 2.0 - 1.0;
+    nObj = normalize(mix(T * nm.x - B * nm.y + p * nm.z, p, poleFade));
+    albedo = mix(tex(uAlbedoMap).rgb, textureLod(uAlbedoMap, suv, 10.0).rgb, poleFade);
+    vec4 ed = tex(uDataMap);
+    emit = pow(ed.rgb, vec3(2.2)) * 2.0 * (1.0 - poleFade);
+    gloss = ed.a;
+    shine = mix(90.0, 10.0, nr.a);
   }
   vec3 n = normalize(vX * nObj.x + vY * nObj.y + vZ * nObj.z);
   vec3 n0 = normalize(vX * p.x + vY * p.y + vZ * p.z);
@@ -555,8 +540,10 @@ export class PlanetSystem {
   // Decoding happens off the main thread; textures go to the GPU one per frame.
 
   /** Width of the set used in the general view, and the one for a selected planet. */
-  private get small() { return this.quality === 'high' ? 512 : 256; }
-  private get large() { return this.small; }
+  // The baked sets are light (all four planets: ~140 KB at 256, ~410 KB at 512), so phones get 512
+  // too; a planet seen close up on a computer gets its 1024 set.
+  private get small() { return this.quality === 'low' ? 256 : 512; }
+  private get large() { return this.quality === 'high' ? 1024 : this.small; }
   private wanted: { body: Body; width: number }[] = [];
   /** While the loading screen shows, every decoded texture goes to the GPU at once. */
   bulk = false;
@@ -763,7 +750,7 @@ export class PlanetSystem {
         uNormalMap: { value: this.blankData },
         uDataMap: { value: this.blankData },
         uSurface: { value: new Vector4(sf.relief, sf.fine, sf.emit, 0) },
-        uSurface2: { value: new Vector4(sf.saturation, sf.polish, this.quality === 'high' ? sf.displace : 0, sf.albedo) },
+        uSurface2: { value: new Vector4(sf.saturation, sf.polish, 0, sf.albedo) },
       },
     }));
     const air = new Mesh(this.sphere, new ShaderMaterial({
