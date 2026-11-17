@@ -10,6 +10,7 @@ import {
   BackSide,
   ClampToEdgeWrapping,
   Color,
+  DataTexture,
   DoubleSide,
   Group,
   IcosahedronGeometry,
@@ -759,6 +760,18 @@ interface Body {
   world: Vector3;
 }
 
+function blank(colour: boolean) {
+  const t = new DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1);
+  t.colorSpace = colour ? SRGBColorSpace : NoColorSpace;
+  t.wrapS = RepeatWrapping;
+  t.wrapT = ClampToEdgeWrapping;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.magFilter = LinearFilter;
+  t.generateMipmaps = true;
+  t.needsUpdate = true;
+  return t;
+}
+
 /** Why a file did not load: missing, refused by the server, or not reachable at all. */
 async function whyNot(url: string): Promise<string> {
   try {
@@ -793,6 +806,12 @@ export class PlanetSystem {
 
   private quality: 'high' | 'medium' | 'low';
 
+  /** 1×1 stand-ins with the same formats and sampling as the real maps, bound until those arrive:
+   *  some drivers rebuild a shader when a texture's format or sampling changes, so the program
+   *  prepared behind the loading screen stays the one used once the maps are in. */
+  private blankColour = blank(true);
+  private blankData = blank(false);
+
   /** Sends one texture to the GPU now (the renderer's initTexture). */
   private upload: (t: Texture) => void;
 
@@ -805,6 +824,8 @@ export class PlanetSystem {
   }
 
   get ids() { return this.bodies.map((b) => b.def.id); }
+  /** Share of the texture sets on the GPU, 0..1 (1 when there are none to load). */
+  get loaded() { const want = this.bodies.filter((b) => b.maps !== 'none'); return want.length ? want.filter((b) => b.res > 0).length / want.length : 1; }
   /** Every texture set asked for is on the GPU (or has failed and fallen back). */
   get ready() { return this.bodies.length > 0 && this.bodies.every((b) => b.maps === 'done' || b.maps === 'none') && this.queue.length === 0 && this.active === 0; }
   has(id: string) { return this.bodies.some((b) => b.def.id === id && b.shown); }
@@ -831,9 +852,11 @@ export class PlanetSystem {
   // Decoding happens off the main thread; textures go to the GPU one per frame.
 
   /** Width of the set used in the general view, and the one for a selected planet. */
-  private get small() { return 512; }
-  private get large() { return this.quality === 'low' ? 512 : 1024; }
+  private get small() { return this.quality === 'high' ? 512 : 256; }
+  private get large() { return this.small; }
   private wanted: { body: Body; width: number }[] = [];
+  /** While the loading screen shows, every decoded texture goes to the GPU at once. */
+  bulk = false;
   private active = 0;
 
   /** The section is near: fetch every planet's small set. */
@@ -921,6 +944,11 @@ export class PlanetSystem {
   private queue: { body: Body; maps: Texture[]; next: number; width: number }[] = [];
 
   private uploadOne() {
+    if (this.bulk) { let n = 0; while (this.queue.length && n++ < 24) this.uploadNext(); return; }
+    this.uploadNext();
+  }
+
+  private uploadNext() {
     const job = this.queue[0];
     if (!job) return;
     if (job.body.gone || job.body.res >= job.width) { job.maps.forEach((t) => { (t.image as ImageBitmap).close?.(); t.dispose(); }); this.queue.shift(); return; }
@@ -1028,9 +1056,9 @@ export class PlanetSystem {
         uPole: { value: new Vector3(...(look?.pole ?? [0.35, 0.45, 0.82])).normalize() },
         uTime: this.time,
         uMaps: { value: 0 },
-        uAlbedoMap: { value: null },
-        uNormalMap: { value: null },
-        uDataMap: { value: null },
+        uAlbedoMap: { value: this.blankColour },
+        uNormalMap: { value: this.blankData },
+        uDataMap: { value: this.blankData },
         uSurface: { value: new Vector4(sf.relief, sf.fine, sf.emit, 0) },
         uSurface2: { value: new Vector4(sf.saturation, sf.polish, this.quality === 'high' ? sf.displace : 0, sf.albedo) },
       },
@@ -1291,5 +1319,7 @@ export class PlanetSystem {
     this.bodies = [];
     this.sphere.dispose();
     this.rock.dispose();
+    this.blankColour.dispose();
+    this.blankData.dispose();
   }
 }

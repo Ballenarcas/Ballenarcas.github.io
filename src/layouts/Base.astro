@@ -72,6 +72,13 @@ const en = lang === 'en' ? canonical : alt;
       <!-- Lazy: while the 3D Moon runs this picture stays hidden and is never downloaded. -->
       <img class="moon2d" src="/textures/moon-still.webp" alt="" width="1024" height="1024" decoding="async" loading="lazy" />
     </div>
+    <!-- Loading screen: only when the 3D scene will run (decided before the first paint). It covers
+         the heavy preparation once; later page changes keep it hidden. -->
+    <div class="loader" id="loader" role="status" aria-live="polite" transition:persist="loader">
+      <div class="loader-moon" aria-hidden="true"></div>
+      <p class="hud">{t(lang, 'loader.text')}</p>
+      <div class="loader-bar" aria-hidden="true"><i></i></div>
+    </div>
     <div class="grain" aria-hidden="true"></div>
     <div class="page">
       <slot />
