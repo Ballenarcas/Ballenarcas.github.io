@@ -107,7 +107,7 @@ Nothing blocks the page: there is no loading screen. The head script asks for th
 
 ## Credits
 
-- Moon relief: the LOLA laser altimeter of NASA's Lunar Reconnaissance Orbiter (`ldem_16`, NASA/GSFC, public domain), resampled to 2048×1024 and stored compressed in `public/textures/moon-relief-2k.webp` (8 bits, tanh of the local height).
+- Moon relief: the LOLA laser altimeter of NASA's Lunar Reconnaissance Orbiter (`ldem_16`, NASA/GSFC, public domain), resampled to 1024×512 (`assets-src/moon/moon-relief-1k.webp`, 8 bits, tanh of the local height). `tools/bake_moon.py` bakes the photo, the violet palette and this relief into the one map the page loads (`public/textures/moon-violet-512.webp`, 1K on fast devices), so the GPU does almost no work per pixel.
 - Moon map: Clementine mission data (USGS), version processed by Jens Meyer and Steve Albers, free for personal non-commercial use. The violet colour is applied in the shader, not baked into the map. To replace it, put another equirectangular map in `public/textures/moon-2k.webp` and `moon-4k.webp` (NASA's CGI Moon Kit is in the public domain).
 - Technology icons: [Simple Icons](https://simpleicons.org).
 - The films of Boost and Votify were recorded with sample data.

@@ -54,8 +54,11 @@ const en = lang === 'en' ? canonical : alt;
         try {
           if (new URLSearchParams(location.search).has('flat') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
           if ((n.connection && n.connection.saveData) || (n.deviceMemory || 8) <= 2) return;
-          var gl = document.createElement('canvas').getContext('webgl2');
-          if (!gl) return;
+          // No WebGL context is created here (that alone can stall a browser); the scene checks for real.
+          if (!('WebGL2RenderingContext' in window)) return;
+          var slow = 0;
+          try { slow = Number(localStorage.getItem('vm-flat') || 0); } catch (e) {}
+          if (!/[?&](high|medium|low)\b/.test(location.search) && Date.now() - slow < 3 * 864e5) return;
           d.classList.add('orbit-on');
           // The 3D scene will run: ask for its code and the Moon's first map right away, in parallel
           // with the rest, instead of after the page's own script. (The chunk's file name is filled
@@ -66,9 +69,7 @@ const en = lang === 'en' ? canonical : alt;
             document.head.appendChild(l);
           };
           if ('__SCENE_CHUNK__'.charAt(0) === '/') hint('modulepreload', '__SCENE_CHUNK__');
-          hint('preload', '/textures/moon-1k.webp', 'image');
-          var lose = gl.getExtension('WEBGL_lose_context');
-          if (lose) lose.loseContext();
+          hint('preload', '/textures/moon-violet-512.webp', 'image');
         } catch (e) {}
       })();
     </script>

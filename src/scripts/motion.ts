@@ -25,6 +25,9 @@ function tier(): 'high' | 'medium' | 'low' | 'flat' {
   const query = new URLSearchParams(location.search);
   if (!document.documentElement.classList.contains('orbit-on')) return 'flat';
   for (const t of ['high', 'medium', 'low'] as const) if (query.has(t)) return t;
+  // This device could not keep up on an earlier visit.
+  // (Remembered for three days, then 3D gets another chance.)
+  try { if (Date.now() - Number(localStorage.getItem('vm-flat') || 0) < 3 * 864e5) return 'flat'; } catch {}
   const nav = navigator as Navigator & { deviceMemory?: number };
   if ((nav.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4) return 'low';
   return matchMedia('(max-width: 820px)').matches ? 'medium' : 'high';
@@ -57,14 +60,21 @@ function space() {
   else {
     scene = import('./space/scene')
       .then(async ({ MoonScene }) => {
-        const s = new MoonScene(canvas, level);
+        // A tier forced in the address (?high, ?medium, ?low) also runs on a software renderer.
+        const forced = ['high', 'medium', 'low'].some((t) => new URLSearchParams(location.search).has(t));
+        const s = new MoonScene(canvas, level, !forced);
         await s.ready;
         controller!.attach(s);
         root.classList.add('is-live');
-        // The page never waits for this: the planets are prepared in the background, at the first
-        // idle moment once the Moon is up (textures, shaders and a first draw).
-        const later = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 5000 }) : setTimeout(fn, 2500));
-        later(() => void s.preload(() => {}));
+        // Nothing else is prepared up front: the planets wait until their section comes near.
+        // If even the lowest resolution is too slow, the page goes 2D now and on later visits.
+        s.onTooSlow = () => {
+          try { localStorage.setItem('vm-flat', String(Date.now())); } catch {}
+          root.classList.remove('is-live');
+          scene = Promise.resolve(null);
+          flat();
+          setTimeout(() => s.dispose(), 0);
+        };
         return s;
       })
       .catch(flat);
