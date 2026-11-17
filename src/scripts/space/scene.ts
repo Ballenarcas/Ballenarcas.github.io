@@ -7,7 +7,6 @@ import {
   Float32BufferAttribute,
   LinearFilter,
   LinearMipmapLinearFilter,
-  NoColorSpace,
   RepeatWrapping,
   Matrix3,
   Matrix4,
@@ -54,233 +53,48 @@ void main() {
   gl_Position = projectionMatrix * mv;
 }`;
 
-// The surface. Three scales of geology:
-//  1. Basins, maria and rays: the photograph (albedo) of the Clementine mission.
-//  2. Craters, rims, ridges and walls: the real topography measured by LRO's laser altimeter (LOLA),
-//     read as heights; their slopes tilt the normal, their curvature finds rims and floors.
-//  3. Craters too small for the map: a procedural crater field, shown only where its craters are a
-//     few pixels wide or more, so it never shimmers.
+// The surface. The palette, the relief, the cavities and the rims are baked into one violet map
+// (tools/bake_moon.py), so the GPU does very little here: one texture read, the light of the eclipse,
+// the shadow side and the rim. Kept this cheap on purpose: modest GPUs froze on the live version.
 const MOON_FRAG = /* glsl */ `
 uniform sampler2D uMap;
-uniform sampler2D uHeight;
-uniform vec2 uHTexel;
-uniform float uHeightOn;
 uniform vec3 uLight;
 uniform mat3 uRot;
 uniform float uExposure;
 uniform float uAmbient;
 uniform float uRim;
-uniform float uDetail;
-uniform float uZoom;
-uniform float uCraters;
-uniform float uTime;
 varying vec2 vUv;
 varying vec3 vP;
 varying vec3 vView;
 
-// The Violet Moon palette, darkest maria to the brightest rays (sRGB, decoded below).
-const vec3 NIGHT = vec3(0.071, 0.031, 0.122);  // #12081F
-const vec3 DEEP = vec3(0.176, 0.086, 0.314);   // #2D1650
-const vec3 PURPLE = vec3(0.388, 0.184, 0.6);   // #632F99
-const vec3 SOFT = vec3(0.643, 0.416, 0.839);   // #A46AD6
-const vec3 LAVENDER = vec3(0.812, 0.682, 0.941); // #CFAEF0
-const vec3 LILAC = vec3(0.941, 0.894, 1.0);    // #F0E4FF
-const vec3 MAGENTA = vec3(0.86, 0.55, 0.95);
 vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }
-vec3 violet(float t) {
-  vec3 c = mix(lin(NIGHT), lin(DEEP), smoothstep(0.0, 0.22, t));
-  c = mix(c, lin(PURPLE), smoothstep(0.18, 0.48, t));
-  c = mix(c, lin(SOFT), smoothstep(0.42, 0.72, t));
-  c = mix(c, lin(LAVENDER), smoothstep(0.66, 0.9, t));
-  return mix(c, lin(LILAC), smoothstep(0.88, 1.0, t));
-}
-
-float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
-float hash(vec3 p) {
-  p = fract(p * 0.3183099 + 0.1);
-  p *= 17.0;
-  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
-float noise(vec3 x) {
-  vec3 i = floor(x);
-  vec3 f = fract(x);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
-    mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y),
-    f.z);
-}
-float fbm(vec3 p) {
-  float a = 0.5;
-  float s = 0.0;
-  for (int i = 0; i < 4; i++) { s += a * noise(p); p = p * 2.03 + 7.1; a *= 0.5; }
-  return s;
-}
-
-// Heights are stored compressed (tanh) in 8 bits; this gives kilometres back.
-float heightKm(vec2 uv) {
-  float x = clamp(texture2D(uHeight, uv).r, 0.003, 0.997) * 2.0 - 1.0;
-  return 1.1 * log((1.0 + x) / (1.0 - x));
-}
-
-// One crater per cell at most, kept inside its cell, with a bowl, a raised rim and a skirt.
-// Returns the slope it adds (object space) and its height (-1 floor … +0.35 rim), faded by lod.
-vec4 crater(vec3 p, mat3 R, float scale, float seed, float density, float lod) {
-  vec3 q = R * p * scale + seed;
-  vec3 id = floor(q);
-  if (hash(id + seed * 0.37) > density) return vec4(0.0);
-  vec3 c = 0.3 + 0.4 * vec3(hash(id + 11.3), hash(id + 23.7), hash(id + 37.1));
-  float rad = 0.06 + 0.1 * hash(id + 51.9);
-  vec3 v = q - id - c;
-  float len = length(v);
-  float d = len / rad;
-  if (d >= 1.8) return vec4(0.0);
-  float h;
-  float dh;
-  if (d < 1.0) { h = -1.0 + 1.35 * d * d; dh = 2.7 * d; }
-  else { float t = (d - 1.0) / 0.8; h = 0.35 * (1.0 - t) * (1.0 - t); dh = -0.875 * (1.0 - t); }
-  // Older craters are shallower.
-  float depth = 0.3 + 0.7 * hash(id + 71.3);
-  vec3 g = transpose(R) * (dh * v / max(len, 1e-5)) * (0.42 * depth * lod);
-  return vec4(g, h * depth * lod);
-}
-
-const mat3 R1 = mat3(0.7268, 0.2732, -0.6302, 0.2732, 0.7268, 0.6302, 0.6302, -0.6302, 0.4536);
-const mat3 R2 = mat3(-0.6663, 0.5273, -0.5273, -0.5273, 0.1669, 0.8331, 0.5273, 0.8331, 0.1669);
-const mat3 R3 = mat3(0.8824, 0.4555, 0.1176, -0.4555, 0.7648, 0.4555, 0.1176, -0.4555, 0.8824);
-const mat3 R4 = mat3(-0.2288, 0.9478, -0.2223, -0.5697, 0.0548, 0.82, 0.7894, 0.3142, 0.5274);
-
-// Visible share of a crater octave: 0 when its craters are under ~2 pixels wide.
-float lodFor(float scale, float fw) { return smoothstep(1.6, 4.5, 0.2 / scale / fw); }
-
-float noise2(vec2 p) {
-  vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
-  float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453);
-  float b = fract(sin(dot(i + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5453);
-  float c = fract(sin(dot(i + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5453);
-  float d = fract(sin(dot(i + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5453);
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
 
 void main() {
   vec3 p = normalize(vP);
-  // East and north on the sphere at this point.
-  vec3 T = normalize(vec3(p.z, 0.0, -p.x) + 1e-5);
-  vec3 B = cross(p, T);
-
-  // 2. The measured relief. Heights a pixel footprint apart give the slope (km per km) and the
-  // curvature (rims stand above their surroundings, floors sit below).
-  vec2 e = clamp(fwidth(vUv) * 0.75, uHTexel, uHTexel * 8.0);
-  float hC = heightKm(vUv);
-  float hL = heightKm(vUv - vec2(e.x, 0.0));
-  float hR = heightKm(vUv + vec2(e.x, 0.0));
-  float hD = heightKm(vUv - vec2(0.0, e.y));
-  float hU = heightKm(vUv + vec2(0.0, e.y));
-  float cosLat = max(sqrt(max(1.0 - p.y * p.y, 0.0)), 0.15);
-  vec2 slope = vec2((hR - hL) / (2.0 * e.x * 10914.0 * cosLat), (hU - hD) / (2.0 * e.y * 5457.0));
-  // Relief exaggerated for drama, a little less up close where the map runs out of detail.
-  vec3 g = (slope.x * T + slope.y * B) * (2.8 - 1.4 * uZoom) * uHeightOn;
-  float curve = (hC - 0.25 * (hL + hR + hD + hU)) * uHeightOn;
-
-  // 3. Craters below the map's resolution, faded in by their size on screen.
-  float fw = max(length(fwidth(p)), 1e-6);
-  float craterShade = 0.0;
-  if (uCraters > 0.5) {
-    vec4 c;
-    float l;
-    l = lodFor(34.0, fw); if (l > 0.0) { c = crater(p, R1, 34.0, 3.1, 0.3, l); g += c.xyz; craterShade += c.w; }
-    l = lodFor(75.0, fw); if (l > 0.0) { c = crater(p, R2, 75.0, 7.7, 0.42, l); g += c.xyz; craterShade += c.w; }
-    if (uCraters > 1.5) {
-      l = lodFor(160.0, fw); if (l > 0.0) { c = crater(p, R3, 160.0, 1.9, 0.5, l); g += c.xyz; craterShade += c.w; }
-      l = lodFor(340.0, fw); if (l > 0.0) { c = crater(p, R4, 340.0, 5.3, 0.55, l); g += c.xyz; craterShade += c.w; }
-    }
-  }
-  vec3 n = normalize(p - (g - dot(g, p) * p));
-
-  vec3 albedo = texture2D(uMap, vUv).rgb;
-  if (uDetail > 0.001) {
-    // Fine grit for the closest views.
-    float f = 900.0;
-    float d = 0.00035;
-    float n0 = fbm(p * f);
-    float nT = fbm((p + T * d) * f);
-    float nB = fbm((p + B * d) * f);
-    n = normalize(n - uDetail * 0.0006 * ((nT - n0) * T + (nB - n0) * B) / d);
-    albedo *= 1.0 + uDetail * (n0 - 0.5) * 0.12;
-  }
-
-  vec3 nW = normalize(uRot * n);
   vec3 pW = normalize(uRot * p);
   vec3 V = normalize(-vView);
+  vec3 surface = texture2D(uMap, vUv).rgb;
 
-  float rimLight = smoothstep(0.02, 0.3, curve);
-  float cavity = smoothstep(0.02, 0.3, -curve);
-  float a = lum(albedo);
-
-  // 1. Violet as material: the brightness of the photograph runs through the palette, maria into
-  // deep purple, highlands into violet and lavender, ray systems into lilac.
-  float t = 0.07 + 0.93 * pow(smoothstep(0.08, 0.84, a), 0.85);
-  t = clamp(t + 0.1 * craterShade, 0.0, 1.0);
-  vec3 surface = violet(t);
-  surface *= 1.0 - 0.3 * cavity;
-  surface = mix(surface, lin(LAVENDER), 0.08 * rimLight);
-  // Maria are not all alike: some lean indigo, some plum, in broad regions like real lava plains.
-  float region = smoothstep(0.3, 0.7, noise(p * 2.3 + 4.0) * 0.65 + noise(p * 5.7) * 0.35);
-  float mare = 1.0 - smoothstep(0.3, 0.52, t);
-  surface *= mix(vec3(1.0), mix(vec3(0.62, 0.72, 1.3), vec3(1.35, 0.8, 1.0), region) * (0.75 + 0.5 * region), 0.9 * mare);
-  // A whisper of magenta in the brightest ground.
-  surface = mix(surface, lin(MAGENTA) * 0.9, 0.12 * smoothstep(0.7, 0.95, t));
-
-  // The sun of the eclipse, with a wide soft edge to its shadow.
+  // The sun of the eclipse, with a wide soft edge to its shadow; a full Moon is evenly lit.
   float facing = dot(pW, uLight);
   float day = smoothstep(-0.1, 0.3, facing);
-  // Lunar reflectance (Lommel-Seeliger): a full Moon is evenly bright from centre to edge, and the
-  // light only falls as the sun swings away. Relief stays visible through the slope of each facet.
-  float mu0 = max(dot(nW, uLight), 0.0);
-  float mu = max(dot(nW, V), 0.05);
-  float lit = mix(mu0, 2.0 * mu0 / (mu0 + mu), 0.7) * day;
+  float key = 0.8 + 0.3 * dot(pW, normalize(vec3(-0.62, 0.5, 0.6)));
+  vec3 col = surface * key * day * uExposure * 1.25;
 
-  // A fixed key light from the upper left models the relief at every phase, the full Moon included,
-  // and rakes across it so small craters show their walls.
-  vec3 K = normalize(vec3(-0.62, 0.5, 0.6));
-  float relief = clamp(1.0 + (dot(nW, K) - dot(pW, K)) * 3.2 * (1.0 - 0.55 * uZoom), 0.25, 1.85);
-  float key = 0.72 + 0.44 * dot(pW, K);
-
-  vec3 col = surface * relief * key * lit * uExposure * 1.95;
-  // Lavender sheen where the ground faces the key light; ray systems glow a little.
-  float sheen = pow(max(dot(nW, normalize(K + V)), 0.0), 28.0);
-  col += lin(SOFT) * sheen * 0.05 * lit * uExposure;
-  col += lin(LILAC) * smoothstep(0.62, 0.86, a) * 0.16 * lit * uExposure;
-  // Rays and bright ejecta stand out from their surroundings, over dark maria too.
-  float around = lum(textureLod(uMap, vUv, 5.0).rgb);
-  float ray = smoothstep(0.05, 0.2, a - around);
-  col += lin(LAVENDER) * ray * 0.22 * lit * uExposure;
-
-  // Inside the shadow the Moon is still there: its relief stays readable in deep violet.
-  float shade = 1.0 - day;
+  // Inside the shadow the Moon is still there, in deep violet.
   float wrap = smoothstep(-0.75, 0.2, facing);
-  vec3 umbra = surface * vec3(0.72, 0.5, 1.0) * relief * (0.5 + 0.5 * key);
-  col += umbra * uAmbient * shade * (0.35 + 1.1 * wrap * wrap);
+  col += surface * vec3(0.72, 0.5, 1.0) * uAmbient * (1.0 - day) * (0.35 + 1.1 * wrap * wrap);
 
-  // Rim light: the violet energy around the Moon catching its edge. Uneven along the limb (the same
-  // slow pattern as the corona's streamers), strongest towards the sun and towards the key light.
-  float ndv = clamp(dot(pW, V), 0.0, 1.0);
-  float fres = pow(1.0 - ndv, 3.5);
+  // Rim light, strongest towards the sun.
+  float fres = pow(1.0 - clamp(dot(pW, V), 0.0, 1.0), 3.5);
   vec2 limb = normalize(pW.xy + 1e-5);
-  float drift = uTime * 0.02;
-  float uneven = 0.45 + 0.95 * noise2(limb * 3.2 + vec2(drift, -drift));
-  vec2 sunXY = uLight.xy;
-  float side = length(sunXY) > 0.05 ? clamp(dot(limb, normalize(sunXY)), 0.0, 1.0) : 0.5;
-  float keySide = 0.5 + 0.5 * dot(limb, normalize(K.xy));
-  vec3 rimCol = mix(lin(SOFT), lin(LAVENDER), 0.4 + 0.3 * side);
-  col += rimCol * fres * uneven * (uRim * (0.04 + 0.96 * side * side * side) + 0.07 * keySide * uExposure) * (0.5 + 0.5 * relief);
+  float side = length(uLight.xy) > 0.05 ? clamp(dot(limb, normalize(uLight.xy)), 0.0, 1.0) : 0.5;
+  vec3 rimCol = mix(lin(vec3(0.643, 0.416, 0.839)), lin(vec3(0.812, 0.682, 0.941)), 0.4 + 0.3 * side);
+  col += rimCol * fres * (uRim * (0.04 + 0.96 * side * side * side) + 0.07 * uExposure);
 
   // Tone curve on brightness only, so the violet keeps its colour in the highlights.
   float L = dot(col, vec3(0.2126, 0.7152, 0.0722));
   col *= (1.0 - exp(-L * 1.7)) / max(L, 1e-4);
-  // Grade: richer colour, the darkest tones falling towards deep purple.
-  float G = dot(col, vec3(0.2126, 0.7152, 0.0722));
-  col = max(mix(vec3(G), col, 1.16), 0.0);
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }`;
@@ -320,37 +134,19 @@ varying vec2 vUv;
 void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
 /** Half the size of the aura's plane, in Moon radii. */
-const AURA_SPAN = 3.4;
+const AURA_SPAN = 2.2;
 
-// The aura: the Moon's own violet energy, drawn on one plane that faces the camera, behind the disc.
-// Five layers, each with its own pace so they read as separate phenomena of one system:
-//  - halo: a bright core hugging the limb and a wide soft glow; it breathes very slowly;
-//  - filaments: corona-like streamers of uneven length and width, slowly drifting;
-//  - aurora: thin wavy curtains on a few arcs around the Moon, flowing continuously;
-//  - nebula: a small region of dark violet gas around the Moon, slowly evolving;
-//  - particles: a few faint motes inside the gas, barely moving.
-// With the eclipse the corona grows and leans towards the hidden sun until it leads the picture.
+// The aura: a soft violet glow on one plane that faces the camera, behind the disc. Only simple
+// curves, no noise loops: this plane can cover much of the screen, so every pixel must be cheap.
+// With the eclipse the glow grows and leans towards the hidden sun.
 const GLOW_FRAG = /* glsl */ `
 uniform float uStrength;
 uniform float uEclipse;
 uniform vec2 uSun;
 uniform float uTime;
 uniform float uNear;
-uniform float uQuality;
-uniform float uOrbit;
 varying vec2 vUv;
 const float SPAN = ${AURA_SPAN.toFixed(2)}; // half the plane, in Moon radii
-
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p) {
-  vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
-}
-float fbm(vec2 p, float oct) {
-  float a = 0.5; float s = 0.0;
-  for (int i = 0; i < 5; i++) { if (float(i) >= oct) break; s += a * noise(p); p = p * 2.02 + 3.7; a *= 0.5; }
-  return s;
-}
 vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }
 
 void main() {
@@ -358,89 +154,21 @@ void main() {
   float d = length(q);
   if (d < 0.985 || d > SPAN) discard;
   vec2 dir = q / d;
-  float x = d - 1.0;                      // distance from the limb, in Moon radii
+  float x = d - 1.0;
   float e = uEclipse;
-  float t = uTime;
   float toward = length(uSun) > 0.05 ? max(dot(dir, normalize(uSun)), 0.0) : 0.5;
-  // Towards the end of the eclipse the light leans to the side of the hidden sun.
   float lean = mix(1.0, 0.25 + 1.6 * pow(toward, 1.5), 0.85 * e);
-  float edge = smoothstep(SPAN, SPAN * 0.66, d);
-  float hi = uQuality;
-
-  // Halo: core on the limb and wide glow, breathing (one slow cycle of ~25 s).
-  float breathe = 0.93 + 0.07 * sin(t * 0.25);
+  float edge = smoothstep(SPAN, SPAN * 0.6, d);
+  float breathe = 0.93 + 0.07 * sin(uTime * 0.25);
+  float ang = atan(dir.y, dir.x);
+  // A few broad streamers: sums of sines round the disc, drifting slowly.
+  float rays = 0.6 + 0.25 * sin(ang * 5.0 + uTime * 0.03) + 0.15 * sin(ang * 11.0 - uTime * 0.02);
   float core = exp(-x / 0.06);
   float wide = exp(-x / mix(0.3, 0.55, e));
-  // Never an even ring: the limb glow swells and thins round the disc, like the rim light on the Moon.
-  float uneven = 0.45 + 0.95 * noise(dir * 3.2 + vec2(t * 0.02, -t * 0.02));
-
-  // Filaments: noise around the disc (sampled on the direction, so there is no seam), warped so
-  // the streamers bend, ridged so they are thin, with a length of their own each.
-  float tf = t * 0.018;
-  float reach = mix(0.22, 0.45 + 1.1 * noise(dir * 2.4 + 17.0 + tf * 0.5), e);
-  float filaments = 0.0;
-  // Skipped where the streamers have faded out.
-  if (x < reach * 5.0) {
-    vec2 warp = vec2(noise(dir * 1.8 + vec2(tf, 0.0)), noise(dir * 1.8 + vec2(5.2, -tf))) - 0.5;
-    // Soft streams carry most of the light; a few finer threads ride on them.
-    vec2 fp = dir * 3.4 + warp * 0.7 + vec2(x * 0.12, -x * 0.08);
-    float stream = noise(fp);
-    float ridge = hi > 0.5 ? 1.0 - abs(noise(fp * 2.2 + 9.1) * 2.0 - 1.0) : 0.0;
-    float thread = 0.15 + 0.85 * stream * stream + pow(ridge, 6.0) * 0.35 * stream;
-    filaments = thread * exp(-x / reach) * (0.1 + 0.85 * e * e);
-  }
-
-  // Aurora: two thin curtains on wavy rings, shown on some arcs only, flowing round.
-  float ta = t * 0.045;
-  float ang = atan(dir.y, dir.x);
-  float aurora = 0.0;
-  float r1 = 0.2 + 0.05 * sin(ang * 3.0 + ta * 2.0) + 0.06 * (noise(dir * 2.2 + ta) - 0.5);
-  if (x < r1 + 0.6) {
-  // A soft lower edge and rays rising from it towards space, like an aurora's curtain.
-  float below = exp(-pow(min(x - r1, 0.0) / 0.03, 2.0));
-  float above = exp(-max(x - r1, 0.0) / 0.12);
-  float curtain = below * above;
-  // Folds of the curtain, uneven and rippling.
-  float folds = 0.7 + 0.3 * sin(ang * 26.0 + noise(dir * 5.0 + ta) * 6.0 + ta * 2.0);
-  // Only on one or two short arcs at a time, which wander slowly round.
-  float arcs = smoothstep(0.5, 0.74, noise(dir * 1.1 + vec2(ta * 0.5, 2.0)));
-  aurora = curtain * folds * arcs * mix(0.18, 0.5 + 0.3 * e, hi);
-  }
-
-  // Nebula: a small cloud of dark violet gas around the Moon, slowly turning over.
-  float tn = t * 0.006;
-  vec2 np = q * 0.75 + vec2(tn, -tn * 0.7);
-  float gas = fbm(np + noise(np * 0.8 + 11.0) * 1.4, 3.0 + hi);
-  float nebula = smoothstep(0.42, 0.78, gas) * exp(-x / 1.1) * (1.0 - 0.75 * uOrbit) * (0.55 + 0.3 * e);
-  float knots = pow(smoothstep(0.58, 0.85, gas), 2.0) * exp(-x / 0.7) * 0.5 * (1.0 - 0.75 * uOrbit);
-
-  // Particles: rare faint motes within the gas, drifting very slowly, twinkling out of step.
-  float motes = 0.0;
-  if (hi > 0.5) {
-    vec2 mp = q * 9.0 + vec2(t * 0.004, t * 0.003);
-    vec2 cell = floor(mp);
-    float h = hash(cell);
-    if (h > 0.94) {
-      vec2 at = cell + 0.2 + 0.6 * vec2(hash(cell + 3.1), hash(cell + 7.7));
-      float px = max(fwidth(mp.x), 1e-4) * 1.9;
-      float r = length(mp - at);
-      motes = exp(-r * r / (px * px)) * (0.55 + 0.45 * sin(t * (0.2 + h) + h * 40.0)) * smoothstep(0.25, 0.6, gas) * 1.1;
-    }
-  }
-
-  // Colour: indigo gas, violet glow, lavender threads and core, a hint of magenta in the aurora.
-  vec3 INDIGO = lin(vec3(0.17, 0.11, 0.42));
-  vec3 GAS = lin(vec3(0.33, 0.15, 0.55));
+  float streams = exp(-x / mix(0.2, 0.5, e)) * rays * (0.1 + 0.8 * e * e);
   vec3 VIOLET = lin(vec3(0.5, 0.27, 0.84));
   vec3 LAV = lin(vec3(0.8, 0.66, 1.0));
-  vec3 AUR = mix(lin(vec3(0.62, 0.34, 0.95)), lin(vec3(0.85, 0.5, 0.95)), noise(dir * 3.0 + ta));
-  vec3 sum = VIOLET * wide * (0.2 + 0.32 * e) * breathe * (0.6 + 0.4 * uneven)
-           + LAV * core * (0.5 + 0.5 * e) * breathe * uneven
-           + mix(VIOLET, LAV, 0.55) * filaments
-           + AUR * aurora
-           + mix(INDIGO, GAS, gas) * nebula + GAS * knots
-           + LAV * motes;
-  // The aura leans with the eclipse, steps back when the Moon is close, fades out before the edge.
+  vec3 sum = VIOLET * wide * (0.2 + 0.32 * e) * breathe + LAV * core * (0.5 + 0.5 * e) * breathe + mix(VIOLET, LAV, 0.5) * streams;
   sum *= lean * edge * uStrength * (1.0 - 0.55 * uNear);
   float I = max(max(sum.r, sum.g), sum.b);
   if (I < 1e-4) discard;
@@ -485,8 +213,6 @@ export class MoonScene implements SpaceRenderer {
   private euler = new Euler();
   private light = new Vector3();
   private map: Texture | null = null;
-  private relief: Texture | null = null;
-  private detail: number;
   private pixelRatio: number;
   private maxRatio: number;
   // Frame-time watch: if the device cannot keep up, quality steps down by itself.
@@ -494,40 +220,37 @@ export class MoonScene implements SpaceRenderer {
   private frames = 0;
   private lastTime = 0;
 
-  constructor(private canvas: HTMLCanvasElement, private quality: Quality) {
-    this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-    // Start at a moderate resolution; the frame watch raises it while the device keeps up.
-    this.maxRatio = Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1);
-    this.pixelRatio = Math.min(this.maxRatio, quality === 'high' ? 1.25 : 1);
+  /** Called once if the device cannot keep up even at the lowest resolution. */
+  onTooSlow: (() => void) | null = null;
+
+  constructor(private canvas: HTMLCanvasElement, private quality: Quality, strict = true) {
+    // No multisampling, the default GPU (asking for the fast one can wake a second GPU and stall the
+    // whole browser while it switches), and no 3D at all on a software renderer.
+    this.renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'default', failIfMajorPerformanceCaveat: strict });
+    // Start low; the frame watch raises the resolution while the device keeps up.
+    this.maxRatio = Math.min(devicePixelRatio || 1, quality === 'high' ? 1.5 : quality === 'medium' ? 1.25 : 1);
+    this.pixelRatio = Math.min(this.maxRatio, quality === 'low' ? 0.75 : 1);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setClearColor(0x000000, 0);
-    this.detail = quality === 'high' ? 1 : 0;
     applyRig(this.camera, this.director.update(this.explore, 0));
 
-    this.stars = this.makeStars(quality === 'high' ? 1500 : quality === 'medium' ? 650 : 400);
+    this.stars = this.makeStars(quality === 'high' ? 900 : quality === 'medium' ? 500 : 300);
     this.glow = new Mesh(
       new PlaneGeometry(1, 1),
-      new ShaderMaterial({ vertexShader: GLOW_VERT, fragmentShader: GLOW_FRAG, uniforms: { uStrength: { value: 0 }, uEclipse: { value: 0 }, uSun: { value: new Vector2() }, uTime: { value: 0 }, uNear: { value: 0 }, uQuality: { value: quality === 'high' ? 1 : 0 }, uOrbit: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false, blending: AdditiveBlending }),
+      new ShaderMaterial({ vertexShader: GLOW_VERT, fragmentShader: GLOW_FRAG, uniforms: { uStrength: { value: 0 }, uEclipse: { value: 0 }, uSun: { value: new Vector2() }, uTime: { value: 0 }, uNear: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false, blending: AdditiveBlending }),
     );
     this.moon = new Mesh(
-      new SphereGeometry(1, quality === 'high' ? 128 : quality === 'medium' ? 72 : 56, quality === 'high' ? 96 : quality === 'medium' ? 54 : 40),
+      new SphereGeometry(1, quality === 'high' ? 72 : 48, quality === 'high' ? 48 : 32),
       new ShaderMaterial({
         vertexShader: MOON_VERT,
         fragmentShader: MOON_FRAG,
         uniforms: {
           uMap: { value: null },
-          uHeight: { value: null },
-          uHTexel: { value: new Vector2(1 / 2048, 1 / 1024) },
-          uHeightOn: { value: 0 },
           uLight: { value: new Vector3(0, 0, 1) },
           uRot: { value: new Matrix3() },
           uExposure: { value: 0 },
           uAmbient: { value: 0 },
           uRim: { value: 0 },
-          uDetail: { value: 0 },
-          uZoom: { value: 0 },
-          uCraters: { value: quality === 'high' ? 2 : 1 },
-          uTime: { value: 0 },
         },
       }),
     );
@@ -540,18 +263,16 @@ export class MoonScene implements SpaceRenderer {
 
     canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
 
-    // A light 1K map first, so the Moon appears quickly even on a slow connection; the 2K map
-    // replaces it as soon as it arrives (and the 4K one later, where it is worth it).
-    this.ready = this.loadMap('/textures/moon-1k.webp').then(() => {
+    // One baked map (the palette and the relief are in it). A small one first, for everyone; the
+    // fastest tier gets the 1K map later, when the browser is idle.
+    this.ready = this.loadMap('/textures/moon-violet-512.webp').then(() => {
       this.moon.visible = true;
-      // Light textures everywhere: the 1K map and the 1K relief. Larger maps cost more to fetch and
-      // to upload than they add on screen.
-      this.detailReady = this.loadHeight('/textures/moon-relief-1k.webp').catch(() => undefined).then(() => undefined);
+      if (quality === 'high') {
+        const later = () => void this.loadMap('/textures/moon-violet-1k.webp').catch(() => undefined);
+        if ('requestIdleCallback' in window) requestIdleCallback(later, { timeout: 8000 }); else setTimeout(later, 4000);
+      }
     });
   }
-
-  /** The Moon's relief is in. */
-  private detailReady: Promise<void> = Promise.resolve();
 
   /** Width of the Moon map in use: a map only ever replaces a smaller one, whatever order they arrive in. */
   private mapWidth = 0;
@@ -563,7 +284,7 @@ export class MoonScene implements SpaceRenderer {
     this.mapWidth = width;
     texture.colorSpace = SRGBColorSpace;
     texture.wrapS = RepeatWrapping;
-    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    texture.anisotropy = Math.min(2, this.renderer.capabilities.getMaxAnisotropy());
     texture.minFilter = LinearMipmapLinearFilter;
     texture.magFilter = LinearFilter;
     texture.generateMipmaps = true;
@@ -573,21 +294,6 @@ export class MoonScene implements SpaceRenderer {
     u.uMap.value = texture;
     this.map?.dispose();
     this.map = texture;
-  }
-
-  /** The LOLA height map: data, not colour. */
-  private async loadHeight(url: string) {
-    const texture = await new TextureLoader().loadAsync(url);
-    texture.colorSpace = NoColorSpace;
-    texture.wrapS = RepeatWrapping;
-    texture.minFilter = LinearMipmapLinearFilter;
-    texture.magFilter = LinearFilter;
-    texture.generateMipmaps = true;
-    const u = this.moon.material.uniforms;
-    u.uHeight.value = texture;
-    u.uHTexel.value.set(1 / texture.image.width, 1 / texture.image.height);
-    this.relief?.dispose();
-    this.relief = texture;
   }
 
   private makeStars(count: number) {
@@ -670,17 +376,12 @@ export class MoonScene implements SpaceRenderer {
     u.uExposure.value = intro;
     u.uAmbient.value = (0.03 + 0.035 * e) * intro;
     u.uRim.value = (0.05 + 0.6 * e * e) * intro;
-    u.uTime.value = f.time;
-    if (u.uHeight.value) u.uHeightOn.value = Math.min(1, u.uHeightOn.value + dt * 1.2);
     // How large the Moon really looks (the camera may be anywhere): half its height on screen.
     const distance = Math.max(radius * 1.001, this.camera.position.distanceTo(this.moonAt));
     const tanHalf = Math.tan((this.camera.fov * Math.PI) / 360);
     const apparent = radius / (Math.sqrt(distance * distance - radius * radius) * tanHalf) / 2;
-    // Fine grain only matters once the Moon is large on screen.
+    // The aura steps back when the Moon is large on screen.
     const zoom = Math.min(1, Math.max(0, (apparent - 0.45) / 0.9));
-    u.uZoom.value = zoom;
-    u.uDetail.value = this.detail * zoom;
-    u.uCraters.value = this.quality === 'high' && this.detail > 0 ? 2 : 1;
 
     const g = this.glow.material.uniforms;
     this.glow.position.copy(this.moonAt);
@@ -695,9 +396,6 @@ export class MoonScene implements SpaceRenderer {
     (g.uSun.value as Vector2).set(this.light.x, this.light.y);
     g.uTime.value = f.time;
     g.uNear.value = zoom;
-    g.uOrbit.value = f.orbit;
-    // The quiet layers (fine threads, motes, gas detail) go first when the device is slow.
-    g.uQuality.value = this.detail > 0 ? 1 : 0;
 
     this.planets.light(this.camera, this.light);
 
@@ -793,20 +491,8 @@ export class MoonScene implements SpaceRenderer {
   get busy() { return this.weight > 0.001 || !this.director.settled; }
 
   setPlanets(defs: PlanetDef[]) {
+    // Only the data: no shader is compiled and no texture fetched until the section comes near.
     this.planets.set(defs);
-    // Compile the planets' shaders now, in the background where the browser allows it, instead of
-    // in the first frame they are seen. Hidden objects are skipped by the compiler, so the system
-    // is shown just for the call.
-    const shown = this.planets.group.visible;
-    this.planets.group.visible = true;
-    // Compiled in the background where the browser can; otherwise at the first idle moment (preload).
-    if (this.renderer.extensions.has('KHR_parallel_shader_compile')) void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
-    this.planets.group.visible = shown;
-    // Warm-up at the first idle moment after load, not when the section approaches: the shader
-    // programs do not depend on the textures, and the visitor is not scrolling yet.
-    this.warmed = true;
-    const due = () => { this.warmed = false; };
-    if ('requestIdleCallback' in window) requestIdleCallback(due, { timeout: 4000 }); else setTimeout(due, 2000);
   }
 
   /** Draw the whole system once into a single pixel, far from the orbit, so the driver finishes
@@ -825,42 +511,19 @@ export class MoonScene implements SpaceRenderer {
     for (const [o, v] of shown) o.visible = v;
   }
 
-  /** The heavy work, done once behind the loading screen so scrolling never has to: the planets'
-   *  textures (small sets), every shader compiled, and one first draw of the whole system.
-   *  `progress` receives 0..1. Resolves after at most `limit` ms whatever is left. */
-  async preload(progress: (f: number) => void, textureBudget = 3000) {
-    const start = performance.now();
-    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    // The Moon's full maps first, so they are never swapped in mid-scroll (within a budget).
-    await Promise.race([this.detailReady, wait(textureBudget)]);
-    progress(0.3);
-    // The page sets up its planets just after the scene starts; pages without planets go on.
-    while (!this.planets.ids.length && performance.now() - start < 1200) await wait(60);
-    // Planet textures get a short budget: on a slow connection they keep streaming afterwards,
-    // and the screen does not wait for the network. While it shows, uploads are not spread out.
+  /** The projects section is near: start streaming the planets' textures, and prepare their
+   *  shaders with one tiny draw at the next quiet moment. Nothing of the planets is done before. */
+  prefetchPlanets() {
     this.planets.prefetch();
-    this.planets.bulk = true;
-    const t = performance.now();
-    while (!this.planets.ready && performance.now() - t < textureBudget) {
-      progress(0.3 + Math.min(0.55, this.planets.loaded * 0.55));
-      await wait(80);
+    // In the background where the browser can compile in parallel; the tiny draw finishes the job.
+    if (this.renderer.extensions.has('KHR_parallel_shader_compile')) {
+      const shown = this.planets.group.visible;
+      this.planets.group.visible = true;
+      void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
+      this.planets.group.visible = shown;
     }
-    this.planets.bulk = false;
-    progress(0.9);
-    const shown: [Object3D, boolean][] = [];
-    this.planets.group.traverse((o) => { shown.push([o, o.visible]); o.visible = true; });
-    this.renderer.compile(this.scene, this.camera);
-    this.renderer.setScissorTest(true);
-    this.renderer.setScissor(0, 0, 1, 1);
-    this.renderer.render(this.scene, this.camera);
-    this.renderer.setScissorTest(false);
-    for (const [o, v] of shown) o.visible = v;
-    this.warmed = true;
-    progress(1);
+    this.warmed = false;
   }
-
-  /** The projects section is near: start streaming the planets' textures. */
-  prefetchPlanets() { this.planets.prefetch(); }
   /** Leaving the page: stop fetching. */
   cancelPlanetLoads() { this.planets.cancel(); }
   showPlanets(ids: string[]) {
@@ -896,6 +559,7 @@ export class MoonScene implements SpaceRenderer {
    *  22 fps, so the frames the controller skips on purpose when nothing moves are not mistaken
    *  for slowness. */
   private good = 0;
+  private hopeless = 0;
   private watch(f: Frame) {
     const now = f.time;
     const dt = now - this.lastTime;
@@ -906,8 +570,9 @@ export class MoonScene implements SpaceRenderer {
     if (this.frames < 40) return;
     if (this.slow > 12) {
       this.good = 0;
-      if (this.detail > 0) this.detail = 0;
-      else if (this.pixelRatio > 0.75) this.setRatio(Math.max(0.75, this.pixelRatio - 0.25));
+      if (this.pixelRatio > 0.5) this.setRatio(Math.max(0.5, this.pixelRatio - 0.25));
+      // Still too slow at the lowest resolution, window after window: give up on 3D.
+      else if (++this.hopeless >= 3 && this.onTooSlow) { const give = this.onTooSlow; this.onTooSlow = null; give(); }
     } else if (this.slow === 0 && ++this.good >= 4 && this.pixelRatio < this.maxRatio) {
       this.good = 0;
       this.setRatio(Math.min(this.maxRatio, this.pixelRatio + 0.25));
@@ -926,7 +591,6 @@ export class MoonScene implements SpaceRenderer {
   dispose() {
     this.planets.dispose();
     this.map?.dispose();
-    this.relief?.dispose();
     this.moon.geometry.dispose();
     this.moon.material.dispose();
     this.glow.geometry.dispose();
