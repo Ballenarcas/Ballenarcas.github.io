@@ -220,14 +220,47 @@ function menu() {
   box.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => { box.open = false; }));
 }
 
+/** The smooth scroll, while it runs. */
+let lenis: Lenis | null = null;
+
+/** Links to a place on the same page (the rail, the menu, "back to top"). Handled here alone: with
+ *  both the page router and the smooth scroll reacting to them, every other jump was undone at once. */
+function anchors() {
+  document.addEventListener('click', (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!a || a.target) return;
+    const url = new URL(a.href, location.href);
+    if (!url.hash || url.origin !== location.origin || url.pathname !== location.pathname) return;
+    const id = decodeURIComponent(url.hash.slice(1));
+    const to = id === 'top' ? document.body : document.getElementById(id);
+    if (!to) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    history.pushState(history.state, '', url.hash);
+    // The listeners on the link itself do not run: close the mobile menu here.
+    document.querySelectorAll<HTMLDetailsElement>('[data-menu][open]').forEach((m) => { m.open = false; });
+    if (lenis) lenis.scrollTo(id === 'top' ? 0 : to, { duration: 1.4 });
+    else if (id === 'top') window.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' });
+    else to.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth' });
+    // Keyboard users carry on from where they land.
+    if (id !== 'top' && to instanceof HTMLElement) {
+      if (!to.hasAttribute('tabindex')) to.setAttribute('tabindex', '-1');
+      to.focus({ preventScroll: true });
+    }
+  }, true);
+}
+anchors();
+
 function smooth() {
   if (reduced()) return;
-  const lenis = new Lenis({ anchors: true });
-  lenis.on('scroll', ScrollTrigger.update);
-  const tick = (time: number) => lenis.raf(time * 1000);
+  lenis = new Lenis();
+  const l = lenis;
+  l.on('scroll', ScrollTrigger.update);
+  const tick = (time: number) => l.raf(time * 1000);
   gsap.ticker.add(tick);
   gsap.ticker.lagSmoothing(0);
-  cleanups.push(() => { gsap.ticker.remove(tick); lenis.destroy(); });
+  cleanups.push(() => { gsap.ticker.remove(tick); l.destroy(); if (lenis === l) lenis = null; });
 }
 
 function init() {
@@ -243,6 +276,13 @@ function init() {
   orbitPage();
   menu();
   ScrollTrigger.refresh();
+  // Arriving from another page with a place in the address (/es/#about): go there once laid out.
+  const id = decodeURIComponent(location.hash.slice(1));
+  const to = id && id !== 'top' ? document.getElementById(id) : null;
+  if (to) requestAnimationFrame(() => {
+    if (lenis) lenis.scrollTo(to, { immediate: true, force: true });
+    else to.scrollIntoView();
+  });
 }
 
 document.addEventListener('astro:page-load', init);
