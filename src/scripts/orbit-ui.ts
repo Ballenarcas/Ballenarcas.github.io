@@ -81,6 +81,8 @@ export function orbitUi(scene: MoonScene): () => void {
       const size = Math.max(44, spot.r * 2);
       b.style.transform = `translate3d(${(spot.x - size / 2).toFixed(1)}px, ${(spot.y - size / 2).toFixed(1)}px, 0)`;
       b.style.width = b.style.height = `${size.toFixed(1)}px`;
+      // The hover ring follows the planet's own outline, whatever the size of the touch target.
+      b.style.setProperty('--ring', `${(spot.r * 2 + 6).toFixed(1)}px`);
       const usable = spot.presence > 0.5 && !spot.behind && s.weight > 0.5;
       b.classList.toggle('is-off', !usable);
       b.style.opacity = (spot.presence * (spot.behind ? 0.25 : 1)).toFixed(3);

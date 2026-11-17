@@ -974,7 +974,8 @@ export class PlanetSystem {
       const y = (-this.tmp.y * 0.5 + 0.5) * height;
       // Screen radius: the distance to the camera sets how large the sphere looks.
       const dist = this.tmp2.copy(b.world).sub(camera.position).length();
-      const r = (radius / Math.max(dist * Math.tan((camera.fov * Math.PI) / 360), 1e-4)) * height * 0.5;
+      // The silhouette of a sphere seen from near is a little wider than its radius at that distance.
+      const r = (radius / Math.max(Math.sqrt(Math.max(dist * dist - radius * radius, 1e-8)) * Math.tan((camera.fov * Math.PI) / 360), 1e-4)) * height * 0.5;
       // Behind the Moon: the line from the camera to the planet passes through it first.
       this.ray.origin.copy(camera.position);
       this.ray.direction.copy(this.tmp2).normalize();
