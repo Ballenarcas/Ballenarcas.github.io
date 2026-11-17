@@ -83,7 +83,7 @@ const LOOKS: Record<Look, LookConfig> = {
     ring: { inner: 1.6, outer: 1.7, glow: 0.6 },
     debris: { count: 5, color: '#8a8e9a' },
   },
-  // Aceituna: green and olive country, mountains and dark valleys, ochre highlands, light cloud.
+  // Mercadito (slug aceituna): green and olive country, mountains and dark valleys, ochre highlands, light cloud.
   organic: {
     type: 4, second: '#c9a23a', air: 0.45, airMix: 0.0,
     surface: { relief: 8, fine: 0.8, displace: 0.04, emit: 0.18, albedo: 0.4, saturation: 0.9, polish: 0.12 },
