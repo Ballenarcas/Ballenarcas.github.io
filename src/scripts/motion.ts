@@ -8,6 +8,7 @@ import { FlatRenderer } from './space/flat';
 import type { MoonScene } from './space/scene';
 import { orbitUi } from './orbit-ui';
 import { meteorTriggers } from './meteors';
+import { comet } from './comet';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -277,6 +278,7 @@ function init() {
   clips();
   orbitPage();
   menu();
+  cleanups.push(comet());
   ScrollTrigger.refresh();
   // Arriving from another page with a place in the address (/es/#about): go there once laid out.
   const id = decodeURIComponent(location.hash.slice(1));

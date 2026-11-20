@@ -15,7 +15,7 @@ function words() {
 }
 
 /** A quiet line of text at the foot of the screen, read out to screen readers too. */
-function note(text: string, ms: number) {
+export function note(text: string, ms: number) {
   const el = document.createElement('p');
   el.className = 'meteor-note hud';
   el.setAttribute('role', 'status');
