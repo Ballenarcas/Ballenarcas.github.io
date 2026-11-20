@@ -204,6 +204,54 @@ float height(vec3 p) {
   return fbm(q) * 0.75 + 0.14 * pow(cracks, 16.0);
 }
 
+// BOOOST: a world of energy. Plates of dark polished rock, split by rivers of blue-white light that
+// run hot in their middle, with a few bright vents. Its own surface, independent of the source pack.
+vec3 booostWarp(vec3 p) { return p * 2.3 + uSeed + (vec3(fbm(p * 1.4 + 3.1), fbm(p * 1.4 + 7.7), fbm(p * 1.4 + 1.3)) - 0.5) * 0.9; }
+// Height: plates stand up, rivers cut down between them.
+float booostHeight(vec3 p) {
+  vec3 q = booostWarp(p);
+  vec3 big = cells(q);
+  vec3 small = cells(q * 2.6 + 4.0);
+  float plates = smoothstep(0.0, 0.16, big.y);
+  float cracks = mix(1.0, smoothstep(0.0, 0.08, small.y), step(0.45, small.z) * 0.6);
+  return plates * cracks + fbm(p * 18.0) * 0.06;
+}
+void booost(vec3 p, vec3 T, vec3 B, out vec3 albedo, out vec3 emit, out vec3 nObj, out float gloss, out float shine) {
+  vec3 q = booostWarp(p);
+  vec3 big = cells(q);
+  vec3 small = cells(q * 2.6 + 4.0);
+  float flow = fbm(q * 1.7 + 5.0);
+  // Rivers: wide where the flow is strong; the small cracks carry light only in some plates.
+  float width = mix(0.025, 0.085, smoothstep(0.3, 0.7, flow));
+  float river = 1.0 - smoothstep(0.0, width, big.y);
+  float crack = (1.0 - smoothstep(0.0, width * 0.45, small.y)) * step(0.45, small.z) * smoothstep(0.35, 0.6, flow);
+  float heat = max(river, crack * 0.7) * (0.65 + 0.55 * fbm(q * 4.0 + 2.0));
+  // Vents: a bright point in the middle of a few plates.
+  float vent = exp(-big.x * big.x * 90.0) * step(0.9, big.z);
+  // Rock: graphite and steel blue, each plate a little different, cooler and darker by the rivers.
+  float tone = 0.35 + 0.65 * big.z;
+  vec3 rock = mix(vec3(0.018, 0.022, 0.034), vec3(0.09, 0.11, 0.15), tone * (0.7 + 0.6 * fbm(p * 9.0)));
+  rock = mix(rock, vec3(0.16, 0.19, 0.24), smoothstep(0.62, 0.95, fbm(p * 5.0 + 9.0)) * 0.5);
+  float scorch = 1.0 - smoothstep(width, width * 3.5, big.y);
+  albedo = rock * (1.0 - 0.6 * scorch);
+  // Light: deep blue at the edges of a river, ice blue inside, white where it runs hottest.
+  vec3 deep = vec3(0.02, 0.18, 0.9);
+  vec3 ice = vec3(0.35, 0.8, 1.0);
+  emit = mix(deep, ice, smoothstep(0.3, 0.85, heat)) * heat * 1.5;
+  emit += vec3(0.9, 0.97, 1.0) * pow(smoothstep(0.55, 1.0, heat), 3.0) * 1.2;
+  emit += deep * scorch * 0.12;
+  emit += mix(ice, vec3(1.0), 0.5) * vent * 1.6;
+  // Relief from the height, by small steps across the surface.
+  float d = 0.0025;
+  float h0 = booostHeight(p);
+  float hT = booostHeight(normalize(p + T * d));
+  float hB = booostHeight(normalize(p + B * d));
+  nObj = normalize(p - ((hT - h0) * T + (hB - h0) * B) / d * 0.022);
+  // The plates are polished: sharp highlights on the rock, none on the light.
+  gloss = 0.5 * (1.0 - smoothstep(0.0, 0.5, heat));
+  shine = 70.0;
+}
+
 void surface(vec3 vP) {
   vec3 p = normalize(vP);
   vec3 T = normalize(cross(vec3(0.0, 1.0, 0.0), p) + 1e-4);
@@ -401,6 +449,7 @@ void surface(vec3 vP) {
       emit += uSecond * em * uSurface.z;
     }
   }
+  if (uType > 2.5 && uType < 3.5) booost(p, T, B, albedo, emit, nObj, gloss, shine);
   gAlbedo = albedo; gEmit = emit; gGloss = gloss; gRough = (90.0 - shine) / 80.0;
   gNormal = vec3(dot(nObj, T), dot(nObj, B), dot(nObj, p));
 }

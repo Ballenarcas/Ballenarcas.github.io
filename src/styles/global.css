@@ -437,3 +437,11 @@ html:not(.js) .exp-shot video { display: none; }
   .exp-shot, .exp:nth-of-type(even) .exp-shot { transform: none; transition: none; }
   .btn, .link::before, .next-name { transition: none; }
 }
+
+/* A hidden meteor shower (see scripts/meteors.ts). */
+.meteors { position: fixed; inset: 0; z-index: 12; width: 100%; height: 100%; pointer-events: none; }
+.meteor-note { position: fixed; left: 50%; bottom: clamp(24px, 6svh, 56px); z-index: 13; translate: -50% 12px; width: max-content; max-width: min(88vw, 560px); margin: 0; padding: 10px 18px; border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(17, 16, 32, 0.88); backdrop-filter: blur(8px); text-align: center; color: var(--ink); opacity: 0; pointer-events: none; transition: opacity 0.8s var(--ease), translate 0.8s var(--ease); }
+@media (max-width: 600px) { .meteor-note { border-radius: 16px; } }
+.meteor-note.in { opacity: 1; translate: -50% 0; }
+/* A hidden comet (see scripts/comet.ts): in the sky, behind the text. */
+.comet { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; }

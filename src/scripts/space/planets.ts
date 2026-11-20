@@ -76,9 +76,9 @@ interface LookConfig {
 }
 
 const LOOKS: Record<Look, LookConfig> = {
-  // Boost: silver mineral crust, fractured onto dark depths with ice-blue light; a fine ring.
+  // Booost: a world of energy, dark polished plates split by rivers of blue-white light; a fine ring.
   tech: {
-    type: 3, second: '#8fd4ff', air: 0.3, airMix: 0.3,
+    type: 3, second: '#8fd4ff', air: 0.75, airMix: 0.6,
     surface: { relief: 5, fine: 0.9, displace: 0.025, emit: 0.9, albedo: 0.3, saturation: 0.12, polish: 0.6 },
     ring: { inner: 1.6, outer: 1.7, glow: 0.6 },
     debris: { count: 5, color: '#8a8e9a' },
