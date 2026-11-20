@@ -1,11 +1,11 @@
-// A hidden comet, a nod to Your Name: stay on the opening screen for twenty seconds without scrolling and a comet
-// crosses the sky, splitting in two on its way. Once per visit, never with reduced motion, and drawn
+// A comet, a nod to Your Name: a few seconds after arriving on the home page, once the Moon is up, a
+// comet crosses the sky, splitting in two on its way. Once per visit, never with reduced motion, and drawn
 // on its own small 2D canvas behind the text only while it flies.
 import { note } from './meteors';
 
-// `?comet` in the address calls it after three seconds, to see it without waiting.
+// `?comet` in the address brings it back on every load, to see it again.
 const asked = () => new URLSearchParams(location.search).has('comet');
-const WAIT = 20_000;
+const WAIT = 3500;
 const FLIGHT = 7500;
 const SEEN = 'vm-comet';
 
@@ -95,26 +95,20 @@ function fly() {
   requestAnimationFrame(frame);
 }
 
-/** Arm the comet on a page with the opening screen; scrolling, a key or a tap starts the wait again (moving the mouse does not). */
+/** On the home page: the comet comes a few seconds after arrival (later if the tab is in the background). */
 export function comet(): () => void {
   const hero = document.getElementById('top');
   if (!hero || seen() || matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
   let timer = 0;
-  const arm = () => {
-    clearTimeout(timer);
-    timer = window.setTimeout(() => {
-      // Only while the opening screen is in view and the tab is on show.
-      if (document.hidden || scrollY > innerHeight * 0.4 || seen()) { arm(); return; }
-      stop();
-      fly();
-    }, asked() ? 3000 : WAIT);
+  const go = () => {
+    if (document.hidden) return; // waits for the tab to be shown
+    document.removeEventListener('visibilitychange', go);
+    timer = window.setTimeout(() => { if (!seen()) fly(); }, WAIT);
   };
-  const events = ['scroll', 'pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
-  const stop = () => {
+  document.addEventListener('visibilitychange', go);
+  go();
+  return () => {
     clearTimeout(timer);
-    for (const e of events) removeEventListener(e, arm);
+    document.removeEventListener('visibilitychange', go);
   };
-  for (const e of events) addEventListener(e, arm, { passive: true });
-  arm();
-  return stop;
 }
