@@ -92,8 +92,8 @@ a { color: inherit; text-decoration: none; }
   background-size: 620px 540px;
 }
 .space.is-live::after { opacity: 0; }
-.space canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1.4s ease; }
-.space.is-live canvas { opacity: 1; }
+.space canvas:not(.comet) { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1.4s ease; }
+.space.is-live canvas:not(.comet) { opacity: 1; }
 .moon2d { display: none; position: absolute; left: 50%; top: 50%; width: 40vmin; height: 40vmin; margin: -20vmin 0 0 -20vmin; will-change: transform; }
 .space.is-flat .moon2d { display: block; }
 /* Reduced motion or no script: a still Moon over the first screen, and the sky scrolls away with it. */
