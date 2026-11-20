@@ -1,11 +1,11 @@
-// A hidden comet, a nod to Your Name: stay still on the opening screen for a minute and a comet
+// A hidden comet, a nod to Your Name: stay on the opening screen for twenty seconds without scrolling and a comet
 // crosses the sky, splitting in two on its way. Once per visit, never with reduced motion, and drawn
 // on its own small 2D canvas behind the text only while it flies.
 import { note } from './meteors';
 
 // `?comet` in the address calls it after three seconds, to see it without waiting.
 const asked = () => new URLSearchParams(location.search).has('comet');
-const WAIT = 60_000;
+const WAIT = 20_000;
 const FLIGHT = 7500;
 const SEEN = 'vm-comet';
 
@@ -95,7 +95,7 @@ function fly() {
   requestAnimationFrame(frame);
 }
 
-/** Arm the comet on a page with the opening screen; any sign of life starts the minute again. */
+/** Arm the comet on a page with the opening screen; scrolling, a key or a tap starts the wait again (moving the mouse does not). */
 export function comet(): () => void {
   const hero = document.getElementById('top');
   if (!hero || seen() || matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
@@ -109,7 +109,7 @@ export function comet(): () => void {
       fly();
     }, asked() ? 3000 : WAIT);
   };
-  const events = ['scroll', 'pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+  const events = ['scroll', 'pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
   const stop = () => {
     clearTimeout(timer);
     for (const e of events) removeEventListener(e, arm);
