@@ -7,6 +7,7 @@ import { SpaceController } from './space/controller';
 import { FlatRenderer } from './space/flat';
 import type { MoonScene } from './space/scene';
 import { orbitUi } from './orbit-ui';
+import { meteorTriggers } from './meteors';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -251,6 +252,7 @@ function anchors() {
   }, true);
 }
 anchors();
+meteorTriggers();
 
 function smooth() {
   if (reduced()) return;
