@@ -1,5 +1,5 @@
 // A hidden meteor shower, a nod to Frieren: a shower of stars that only comes once every fifty years.
-// It is called with the Konami code (↑ ↑ ↓ ↓ ← → ← → B A), or on a touch screen by tapping the title
+// It is called with the Konami code (↑ ↑ ↓ ↓ ← → ← → B A) or by typing "frieren", or on a touch screen by tapping the title
 // of the skills section five times in a row. Drawn on its own small 2D canvas over the page for a few
 // seconds, then removed: nothing of it runs the rest of the time.
 
@@ -119,21 +119,30 @@ export function meteorShower() {
 
 /** Listens once, for the whole visit: page changes keep it. */
 export function meteorTriggers() {
+  // The Konami code, read by key position too, so any keyboard layout works; or the word "frieren".
+  const codes = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
   let typed = 0;
+  let word = '';
   addEventListener('keydown', (e) => {
     const target = e.target as HTMLElement | null;
     if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    typed = key === CODE[typed] ? typed + 1 : key === CODE[0] ? 1 : 0;
-    if (typed === CODE.length) { typed = 0; meteorShower(); }
+    const hit = (i: number) => key === CODE[i] || e.code === codes[i];
+    typed = hit(typed) ? typed + 1 : hit(0) ? 1 : 0;
+    if (typed === CODE.length) { typed = 0; meteorShower(); return; }
+    if (key.length === 1) {
+      word = (word + key).slice(-7);
+      if (word === 'frieren') { word = ''; meteorShower(); }
+    }
   });
-  // Touch screens have no arrows: five quick taps on the title of the skills section.
+  // Touch screens have no arrows: five quick taps on the head of the skills section. Pointer events,
+  // not clicks: Safari on iPhone sends no click for a tap on plain text.
   let taps = 0;
   let lastTap = 0;
-  document.addEventListener('click', (e) => {
-    if (!(e.target as Element | null)?.closest?.('#skills h2')) return;
+  document.addEventListener('pointerup', (e) => {
+    if (!(e.target as Element | null)?.closest?.('#skills .scene-head')) return;
     const now = performance.now();
-    taps = now - lastTap < 600 ? taps + 1 : 1;
+    taps = now - lastTap < 700 ? taps + 1 : 1;
     lastTap = now;
     if (taps >= 5) { taps = 0; meteorShower(); }
   });
